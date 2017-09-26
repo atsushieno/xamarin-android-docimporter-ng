@@ -41,6 +41,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="JavaStubParser.cs" />
     <Compile Include="JavaApi.XmlModel.cs" />
+    <Compile Include="Importer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

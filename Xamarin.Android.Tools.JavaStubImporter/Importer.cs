@@ -1,21 +1,20 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
-using Mono.Options;
+using Irony.Parsing;
+using Xamarin.Android.Tools.ApiXmlAdjuster;
 
 namespace Xamarin.Android.Tools.JavaStubImporter
 {
-	class Driver
+	public class Importer
 	{
-		public static void Main (string [] args)
+		public Importer ()
 		{
-			new Driver ().Run (args);
 		}
 
-		public void Run (string [] args)
+
+		public void Import (ImporterOptions options)
 		{
-			var options = CreateOptions (args);
-			new Importer ().Import (options);
 			ZipArchive zip;
 			using (var stream = File.OpenRead (options.InputZipArchive)) {
 				zip = new ZipArchive (stream);
@@ -30,7 +29,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			}
 		}
 
-		JavaStubGrammar grammar = new JavaStubGrammar ();
+		JavaStubGrammar grammar = new JavaStubGrammar () { LanguageFlags = LanguageFlags.Default | LanguageFlags.CreateAst };
+		JavaApi api = new JavaApi ();
 
 		bool ParseJava (string javaSourceText)
 		{
@@ -41,16 +41,11 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			return !result.HasErrors ();
 		}
 
-		Importer.ImporterOptions CreateOptions (string [] args)
+		public class ImporterOptions
 		{
-			var ret = new Importer.ImporterOptions ();
-			var options = new OptionSet () {"arguments:",
-				{"input=", v => ret.InputZipArchive = v },
-				{"output=", v => ret.OutputFile = v },
-				{"verbose", v => ret.DiagnosticWriter = Console.Error },
-			};
-			options.Parse (args);
-			return ret;
+			public string InputZipArchive { get; set; }
+			public string OutputFile { get; set; }
+			public TextWriter DiagnosticWriter { get; set; } = TextWriter.Null;
 		}
 	}
 }
