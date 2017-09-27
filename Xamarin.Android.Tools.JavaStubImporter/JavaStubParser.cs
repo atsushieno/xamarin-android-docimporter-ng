@@ -10,6 +10,16 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 	[Language ("JavaStub", "1.0", "Java Stub grammar in Android SDK (android-stubs-src.jar)")]
 	public partial class JavaStubGrammar : Grammar
 	{
+		class NestedType : JavaMember
+		{
+			public NestedType (JavaType type)
+				: base (type)
+			{
+			}
+
+			public JavaType Type { get; set; }
+		}
+
 		NonTerminal DefaultNonTerminal (string label)
 		{
 			var nt = new NonTerminal (label);
@@ -99,11 +109,13 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			KeyTerm keyword_at_interface = Keyword ("@interface");
 			KeyTerm keyword_extends = Keyword ("extends");
 			KeyTerm keyword_implements = Keyword ("implements");
+			KeyTerm keyword_throw = Keyword ("throw");
 			KeyTerm keyword_throws = Keyword ("throws");
 			KeyTerm keyword_null = Keyword ("null");
 			KeyTerm keyword_super = Keyword ("super");
 			KeyTerm keyword_true = Keyword ("true");
 			KeyTerm keyword_false = Keyword ("false");
+			KeyTerm keyword_new = Keyword ("new");
 
 			var compile_unit = DefaultNonTerminal ("compile_unit");
 			var opt_package_decl = DefaultNonTerminal ("opt_package_declaration");
@@ -119,21 +131,32 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var opt_implements_decl = DefaultNonTerminal ("opt_implements_decl");
 			var implements_decl = DefaultNonTerminal ("implements_decl");
 			var interface_decl = DefaultNonTerminal ("interface_decl");
+			var iface_or_at_iface = DefaultNonTerminal ("iface_or_at_iface");
 			var type_body = DefaultNonTerminal ("type_body");
 			var type_members = DefaultNonTerminal ("type_members");
 			var type_member = DefaultNonTerminal ("type_member");
+			var nested_type_decl = DefaultNonTerminal ("nested_type_decl");
 			var ctor_decl = DefaultNonTerminal ("ctor_decl");
 			var method_decl = DefaultNonTerminal ("method_decl");
 			var field_decl = DefaultNonTerminal ("field_decl");
+			var opt_field_assignment = DefaultNonTerminal ("opt_field_assignment"); 
 			var static_ctor_decl = DefaultNonTerminal ("static_ctor_decl");
+			var opt_enum_member_initializers = DefaultNonTerminal ("opt_enum_member_initializers");
 			var enum_member_initializers = DefaultNonTerminal ("enum_member_initializers");
 			var enum_member_initializer = DefaultNonTerminal ("enum_member_initializer");
 			var terminate_decl_or_body = DefaultNonTerminal ("terminate_decl_or_body");
 			var assignments = DefaultNonTerminal ("assignments");
+			var assignment = DefaultNonTerminal ("assignment");
 			var assign_expr = DefaultNonTerminal ("assign_expr");
+			var assigned_rvalue = DefaultNonTerminal ("assigned_rvalue");
+			var value_assignments = DefaultNonTerminal ("value_assignments");
+			var value_literals = DefaultNonTerminal ("value_literals");
 			var annotations = DefaultNonTerminal ("annotations");
 			var annotation = DefaultNonTerminal ("annotation");
+			var opt_annotation_args = DefaultNonTerminal ("opt_annotation_args");
+			var annotation_value_assignments = DefaultNonTerminal ("annotation_value_assignments");
 			var annot_assign_expr = DefaultNonTerminal ("annot_assign_expr");
+			var inner_annotations = DefaultNonTerminal ("inner_annotations"); 
 			var modifiers_then_opt_generic_arg = DefaultNonTerminal ("modifiers_then_opt_generic_arg");
 			var modifier_or_generic_arg = DefaultNonTerminal ("modifier_or_generic_arg");
 			var modifiers = DefaultNonTerminal ("modifiers");
@@ -149,40 +172,53 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var vararg_type = DefaultNonTerminal ("vararg_type");
 			var generic_type = DefaultNonTerminal ("generic_type");
 			var generic_instance_arguments_spec = DefaultNonTerminal ("generic_arguments_spec");
-			var generic_instance_arguments = DefaultNonTerminal ("generic_arguments");
+			var generic_instance_arguments = DefaultNonTerminal ("generic_instance_arguments");
+			var generic_instance_argument = DefaultNonTerminal ("generic_instance_argument");
+			var generic_identifier_or_q = DefaultNonTerminal ("generic_identifier_or_q");
+			var generic_constraints = DefaultNonTerminal ("generic_constraints");
+			var generic_constraint_types = DefaultNonTerminal ("generic_constraint_types");
 			var expressions = DefaultNonTerminal ("expressions");
+			var impl_expression = DefaultNonTerminal ("impl_expression");
 			var call_super = DefaultNonTerminal ("call_super");
+			var super_args = DefaultNonTerminal ("super_args");
 			var default_value_expr = DefaultNonTerminal ("default_value_expr");
+			var default_value_null_casted = DefaultNonTerminal ("default_value_null_casted");
 			var default_value_literal = DefaultNonTerminal ("default_value_literal");
 			var runtime_exception = DefaultNonTerminal ("runtime_exception");
 			var numeric_terminal = TerminalFactory.CreateCSharpNumber ("numeric_value_literal");
-			var numeric_literal = (Empty | "-") + numeric_terminal + (Empty | "L" | "f");
-			numeric_literal |= "(" + numeric_literal + "/" + numeric_literal + ")";
+			numeric_terminal.AddPrefix ("-", NumberOptions.AllowSign);
+			numeric_terminal.AddPrefix ("+", NumberOptions.AllowSign);
+			//numeric_terminal.AddSuffix ("f");
+			numeric_terminal.AddSuffix ("L");
+			var numeric_literal = DefaultNonTerminal ("numeric_literal");
 			var string_literal = TerminalFactory.CreateCSharpString ("string_literal");
-			var value_literal = string_literal | numeric_literal | keyword_null;
+			var value_literal = DefaultNonTerminal ("value_literal");
 
 			// <construction_rules>
 
 			compile_unit.Rule = opt_package_decl + imports + type_decls;
-			imports.Rule = MakeStarRule (imports, null, import);
 			opt_package_decl.Rule = package_decl | Empty;
 			package_decl.Rule = keyword_package + type_name + ";";
-			imports.Rule = MakeStarRule (imports, null, import);
+			imports.Rule = MakeStarRule (imports, import);
 			import.Rule = keyword_import + type_name + ";";
 			type_decls.Rule = MakeStarRule (type_decls, type_decl);
 
 			type_decl.Rule = class_decl | interface_decl | enum_decl;
-			enum_decl.Rule = annotations + modifiers_then_opt_generic_arg + keyword_enum + identifier + opt_implements_decl + "{" + (Empty | enum_member_initializers) + type_members + "}";
+			enum_decl.Rule = annotations + modifiers_then_opt_generic_arg + keyword_enum + identifier + opt_implements_decl + "{" + opt_enum_member_initializers + type_members + "}";
 			class_decl.Rule = annotations + modifiers_then_opt_generic_arg + keyword_class + identifier + opt_generic_arg_decl + opt_extends_decl + opt_implements_decl + type_body;
-			interface_decl.Rule = annotations + modifiers_then_opt_generic_arg + (keyword_interface | keyword_at_interface) + identifier + opt_generic_arg_decl + opt_extends_decl + opt_implements_decl + type_body;
-			opt_generic_arg_decl.Rule = Empty | ("<" + generic_instance_arguments + ">");
+			interface_decl.Rule = annotations + modifiers_then_opt_generic_arg + iface_or_at_iface + identifier + opt_generic_arg_decl + opt_extends_decl + opt_implements_decl + type_body;
+			iface_or_at_iface.Rule = keyword_interface | keyword_at_interface;
+			opt_generic_arg_decl.Rule = Empty | "<" + generic_instance_arguments + ">";
 			opt_extends_decl.Rule = Empty | keyword_extends + implements_decl; // when it is used with an interface, it can be more than one...
 			opt_implements_decl.Rule = Empty | keyword_implements + implements_decl;
 			implements_decl.Rule = MakePlusRule (implements_decl, ToTerm (","), type_name);
 			type_body.Rule = "{" + type_members + "}";
-			annotations.Rule = MakeStarRule (DefaultNonTerminal ("annotation_list"), annotation);
-			annotation.Rule = "@" + type_name + (Empty | "(" + MakeStarRule (DefaultNonTerminal ("annotinitlist"), ToTerm (","), annot_assign_expr) + ")");
-			annot_assign_expr.Rule = assign_expr | identifier + "=" + "{" + MakeStarRule (DefaultNonTerminal ("inner_annot_list"), ToTerm (","), annotations) + "}";
+			annotations.Rule = MakeStarRule (annotations, annotation);
+			annotation.Rule = "@" + type_name + opt_annotation_args;
+			opt_annotation_args.Rule = Empty | "(" + annotation_value_assignments + ")";
+			annotation_value_assignments.Rule = MakeStarRule (annotation_value_assignments, ToTerm (","), annot_assign_expr);
+			annot_assign_expr.Rule = assign_expr | identifier + "=" + "{" + inner_annotations + "}";
+			inner_annotations.Rule = MakeStarRule (inner_annotations, ToTerm (","), annotations);
 
 			// HACK: I believe this is an Irony bug that adding opt_generic_arg_decl here results in shift-reduce conflict, but it's too complicated to investigate the actual issue.
 			// As a workaround I add generic arguments as part of this "modifier" so that it can be safely added to a generic method declaration.
@@ -191,26 +227,36 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			modifier_or_generic_arg.Rule = modifier | generic_instance_arguments_spec;
 			modifier.Rule = keyword_public | keyword_protected | keyword_final | keyword_abstract | keyword_synchronized | keyword_default | keyword_native | keyword_volatile | keyword_transient | keyword_static;
 
-			type_members.Rule = MakeStarRule (DefaultNonTerminal ("type_member_list"), type_member);
-			type_member.Rule = type_decl | ctor_decl | method_decl | field_decl | static_ctor_decl;
-			enum_member_initializers.Rule = MakeStarRule (enum_member_initializers, ToTerm (","), enum_member_initializer) + ";";
+			type_members.Rule = MakeStarRule (type_members, type_member);
+			type_member.Rule = nested_type_decl | ctor_decl | method_decl | field_decl | static_ctor_decl;
+			nested_type_decl.Rule = type_decl;
+			opt_enum_member_initializers.Rule = Empty | enum_member_initializers + ";";
+			enum_member_initializers.Rule = MakeStarRule (enum_member_initializers, ToTerm (","), enum_member_initializer);
 			enum_member_initializer.Rule = identifier + "(" + ")";
 			static_ctor_decl.Rule = annotations + keyword_static + "{" + assignments + "}";
-			assignments.Rule = MakeStarRule (assignments, assign_expr + ";");
-			assign_expr.Rule = identifier + "=" + (value_literal | type_name | "{" + MakeStarRule (DefaultNonTerminal ("values"), ToTerm (","), value_literal) + "}");
+			assignments.Rule = MakeStarRule (assignments, assignment);
+			assignment.Rule = assign_expr + ";";
+			assign_expr.Rule = identifier + "=" + assigned_rvalue;
+			assigned_rvalue.Rule = value_literal | type_name | value_assignments;
+			value_assignments.Rule = "{" + value_literals + "}";
+			value_literals.Rule = MakeStarRule (value_literals, ToTerm (","), value_literal);
 
-			field_decl.Rule = annotations + modifiers_then_opt_generic_arg + type_name + identifier + (Empty | "=" + value_literal) + ";";
+			field_decl.Rule = annotations + modifiers_then_opt_generic_arg + type_name + identifier + opt_field_assignment + ";";
+			opt_field_assignment.Rule = Empty | "=" + value_literal;
 			terminate_decl_or_body.Rule = ";" | ("{" + expressions + "}") | (keyword_default + default_value_literal + ";");
 
-			ctor_decl.Rule = annotations + modifiers_then_opt_generic_arg + Empty + Empty + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body; // these Empties can make the structure common to method_decl.
+			ctor_decl.Rule = annotations + modifiers_then_opt_generic_arg + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body; // these Empties can make the structure common to method_decl.
 
-			method_decl.Rule = annotations + modifiers_then_opt_generic_arg + /*opt_generic_arg_decl*/ Empty + type_name + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body;
+			method_decl.Rule = annotations + modifiers_then_opt_generic_arg + /*opt_generic_arg_decl*/ type_name + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body;
 
-			expressions.Rule = MakeStarRule (expressions, call_super | runtime_exception);
-			call_super.Rule = keyword_super + "(" + MakeStarRule (DefaultNonTerminal ("super_args"), ToTerm (","), default_value_expr) + ")" + ";";
-			default_value_expr.Rule = keyword_null | ("(" + type_name + ")" + keyword_null) | default_value_literal;
-			default_value_literal.Rule = numeric_terminal | "\"\"" | ("{" + "}") | keyword_true | keyword_false;
-			runtime_exception.Rule = ToTerm ("throw") + "new" + "RuntimeException" + "(\"Stub!\"" + ")" + ";";
+			expressions.Rule = MakeStarRule (expressions, impl_expression);
+			impl_expression.Rule = call_super | runtime_exception;
+			call_super.Rule = keyword_super + "(" + super_args + ")" + ";";
+			super_args.Rule = MakeStarRule (super_args, ToTerm (","), default_value_expr);
+			default_value_expr.Rule = keyword_null | default_value_null_casted | default_value_literal;
+			default_value_null_casted.Rule = "(" + type_name + ")" + keyword_null;
+			default_value_literal.Rule = numeric_terminal | "\"\"" | "{" + "}" | keyword_true | keyword_false;
+			runtime_exception.Rule = keyword_throw + keyword_new + identifier + "(\"Stub!\"" + ")" + ";";
 
 			argument_decls.Rule = annotations | MakeStarRule (argument_decls, ToTerm (","), argument_decl);
 
@@ -227,12 +273,22 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 
 			generic_type.Rule = dotted_identifier + generic_instance_arguments_spec;
 			generic_instance_arguments_spec.Rule = "<" + generic_instance_arguments + ">";
-			generic_instance_arguments.Rule = MakePlusRule (generic_instance_arguments, ToTerm (","), (type_name | "?") + (Empty | keyword_extends + MakePlusRule (DefaultNonTerminal ("types"), ToTerm ("&"), type_name) | keyword_super + type_name));
+			generic_instance_arguments.Rule = MakePlusRule (generic_instance_arguments, ToTerm (","), generic_instance_argument);
+			generic_instance_argument.Rule = generic_identifier_or_q + generic_constraints;
+			generic_identifier_or_q.Rule = type_name | "?";
+			generic_constraints.Rule = Empty | keyword_extends + generic_constraint_types | keyword_super + type_name;
+			generic_constraint_types.Rule = MakePlusRule (generic_constraint_types, ToTerm ("&"), type_name);
 
 			dotted_identifier.Rule = MakePlusRule (dotted_identifier, ToTerm ("."), identifier);
 
-			// Define node creators
+			numeric_literal.Rule = numeric_terminal;
+			numeric_literal.Rule |= "(" + numeric_literal + "/" + numeric_literal + ")";
+			value_literal.Rule = string_literal | numeric_literal | keyword_null;
 
+			// Define AST node creators
+
+			single_line_comment.AstConfig.NodeCreator = DoNothing;
+			delimited_comment.AstConfig.NodeCreator = DoNothing;
 			identifier.AstConfig.NodeCreator = CreateStringFlattener ();
 			compile_unit.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
@@ -269,63 +325,64 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				// HACK: since modifiers_then_opt_generic_args contains both modifiers and generic args,
 				// it needs to distinguish type names from modifiers.
 				type.TypeParameters = new JavaTypeParameters ((JavaMethod)null) {
-					TypeParameters = tps
-							?.Where (s => s.Contains ('.'))
+					TypeParameters = (tps ?? Enumerable.Empty<string> ())
+ 							?.Where (s => s.Contains ('.'))
 							?.Select (s => new JavaTypeParameter (null) { Name = s })
 							?.ToArray ()
 				};
 				type.Members = (IList<JavaMember>) node.ChildNodes [7].AstNode;
 			};
 			enum_decl.AstConfig.NodeCreator = (ctx, node) => {
-				//annotations + modifiers_then_opt_generic_arg + keyword_enum + identifier + opt_implements_decl + "{" + (Empty | enum_member_initializers) + type_members + "}";
 				ProcessChildren (ctx, node);
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
 				var type = new JavaClass (null);
 				fillType (node, type);
-				if (node.ChildNodes [6].Term != Empty)
+				if (node.ChildNodes [6].ChildNodes.Count > 0)
 					type.Members = ((IEnumerable<string>)node.ChildNodes [6].AstNode).Select (s => new JavaField (null) { Name = s }).Concat (type.Members).ToArray ();
 				node.AstNode = type;
 			};
 			class_decl.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
-				var mods = (IEnumerable<string>) node.ChildNodes [1].AstNode;
-				var exts = ((IEnumerable<string>) node.ChildNodes [5].AstNode);
-				var impls = ((IEnumerable<string>) node.ChildNodes [6].AstNode);
+				var exts = ((IEnumerable<string>) node.ChildNodes [5].AstNode) ?? Enumerable.Empty<string> ();
+				var impls = ((IEnumerable<string>) node.ChildNodes [6].AstNode) ?? Enumerable.Empty<string> ();
 				var type = new JavaClass (null) {
 					Extends = exts?.FirstOrDefault (),
-					Implements = impls
-						?.Select (s => new JavaImplements { Name = s })
-						?.ToArray (),
+					Implements = impls.Select (s => new JavaImplements { Name = s }).ToArray (),
 				};
 				fillType (node, type);
 				node.AstNode = type;
 			};
 			interface_decl.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
+				var exts = ((IEnumerable<string>)node.ChildNodes [5].AstNode) ?? Enumerable.Empty<string> ();
+				var impls = ((IEnumerable<string>)node.ChildNodes [6].AstNode) ?? Enumerable.Empty<string> ();
 				var type = new JavaInterface (null) {
-					Implements = ((IEnumerable<string>)node.ChildNodes [5].AstNode)
-						.Concat ((IEnumerable<string>)node.ChildNodes [6].AstNode)
-						.Select (s => new JavaImplements { Name = s })
-						.ToArray (),
+					Implements = exts.Concat (impls).Select (s => new JavaImplements { Name = s }).ToArray (),
 				};
 				fillType (node, type);
 				node.AstNode = type;
 			};
+			iface_or_at_iface.AstConfig.NodeCreator = SelectSingleChild;
 			type_body.AstConfig.NodeCreator = SelectChildValueAt (1);
 			type_members.AstConfig.NodeCreator = CreateArrayCreator<JavaMember> ();
 			type_member.AstConfig.NodeCreator = SelectSingleChild;
-			Action<ParseTreeNode, JavaMethodBase> fill = (node, method) => {
+			nested_type_decl.AstConfig.NodeCreator = (ctx, node) => {
+				ProcessChildren (ctx, node);
+				node.AstNode = new NestedType (null) { Type = (JavaType) node.ChildNodes [0].AstNode };
+			};
+			Action<ParseTreeNode, JavaMethodBase> fillMethodBase = (node, method) => {
+				bool ctor = node.ChildNodes.Count == 8;
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
 				method.Static = mods.Contains ("static");
 				method.Visibility = mods.FirstOrDefault (s => s == "public" || s == "protected");
-				method.Name = (string)node.ChildNodes [4].AstNode;
-				method.Parameters = ((IEnumerable<JavaParameter>)node.ChildNodes [5].AstNode).ToArray ();
+				method.Name = (string)node.ChildNodes [ctor ? 2 : 3].AstNode;
+				method.Parameters = ((IEnumerable<JavaParameter>)node.ChildNodes [ctor ? 4 : 5].AstNode).ToArray ();
 				method.ExtendedSynthetic = mods.Contains ("synthetic");
-				method.Exceptions = ((IEnumerable<string>)node.ChildNodes [8].AstNode).Select (s => new JavaException { Type = s }).ToArray ();
+				method.Exceptions = ((IEnumerable<string>)node.ChildNodes [ctor ? 7 : 8].AstNode)?.Select (s => new JavaException { Type = s })?.ToArray ();
 				method.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated");
 				method.Final = mods.Contains ("final");
 				method.TypeParameters = new JavaTypeParameters ((JavaMethod) null) {
-					TypeParameters = ((IEnumerable<string>) node.ChildNodes [1].AstNode)
+					TypeParameters = mods
 							.Where (s => s.Contains ('.'))
 							.Select (s => new JavaTypeParameter (null) { Name = s })
 							.ToArray ()
@@ -335,8 +392,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				ProcessChildren (ctx, node);
 				var annots = node.ChildNodes [0].AstNode;
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
-				var ctor = new JavaConstructor (null);
-				fill (node, ctor);
+				var ctor = new JavaConstructor (null) { Type = (string) node.ChildNodes [2].AstNode };
+				fillMethodBase (node, ctor);
 				node.AstNode = ctor;
 			};
 			method_decl.AstConfig.NodeCreator = (ctx, node) => {
@@ -350,7 +407,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					Synchronized = mods.Contains ("synchronized"),
 					ExtendedSynthetic = mods.Contains ("synthetic"),
 				};
-				fill (node, method);
+				fillMethodBase (node, method);
 				node.AstNode = method;
 			};
 			field_decl.AstConfig.NodeCreator = (ctx, node) => {
@@ -369,23 +426,36 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					Transient = mods.Contains ("transient"),
 				};
 			};
+			opt_field_assignment.AstConfig.NodeCreator = (ctx, node) => node.AstNode = node.ChildNodes.Count > 0 ? node.ChildNodes [1].AstNode : null;
 			static_ctor_decl.AstConfig.NodeCreator = DoNothing; // static constructors are ignorable.
+			opt_enum_member_initializers.AstConfig.NodeCreator = (ctx, node) => {
+				ProcessChildren (ctx, node);
+				if (node.ChildNodes.Count > 0)
+					node.AstNode = node.ChildNodes [0].AstNode;
+			};
 			enum_member_initializers.AstConfig.NodeCreator = CreateArrayCreator<string> ();
 			enum_member_initializer.AstConfig.NodeCreator = SelectChildValueAt (0);
 			terminate_decl_or_body.AstConfig.NodeCreator = DoNothing; // method/ctor body doesn't matter.
 			assignments.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			assignment.AstConfig.NodeCreator = SelectChildValueAt (0);
 			assign_expr.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
 				node.AstNode = new KeyValuePair<string, string> ((string)node.ChildNodes [0].AstNode, node.ChildNodes [2].AstNode?.ToString ());
 			};
+			assigned_rvalue.AstConfig.NodeCreator = SelectSingleChild;
 			annotations.AstConfig.NodeCreator = CreateArrayCreator<string> ();
-			annotation.AstConfig.NodeCreator = (ctx, node) => SelectChildValueAt (1); // we don't care about annotation usages so far.
+			annotation.AstConfig.NodeCreator = (ctx, node) => {
+				ProcessChildren (ctx, node.ChildNodes [1]); // we only care about name.
+				node.AstNode = node.ChildNodes [1].AstNode;
+			};
+			opt_annotation_args.AstConfig.NodeCreator = DoNothing;
+			annotation_value_assignments.AstConfig.NodeCreator = DoNothing;
 			annot_assign_expr.AstConfig.NodeCreator = DoNothing;
 			modifiers_then_opt_generic_arg.AstConfig.NodeCreator = CreateArrayCreator<string> ();
-			modifier_or_generic_arg.AstConfig.NodeCreator = (ctx, node) => CreateStringFlattener ();
+			modifier_or_generic_arg.AstConfig.NodeCreator = CreateStringFlattener ();
 			modifiers.AstConfig.NodeCreator = CreateArrayCreator<string> ();
-			modifier.AstConfig.NodeCreator = (ctx, node) => CreateStringFlattener ();
-			argument_decls.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			modifier.AstConfig.NodeCreator = CreateStringFlattener ();
+			argument_decls.AstConfig.NodeCreator = CreateArrayCreator<JavaParameter> ();
 			argument_decl.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
 				node.AstNode = new JavaParameter (null) { Type = (string) node.ChildNodes [1].AstNode, Name = (string) node.ChildNodes [2].AstNode };
@@ -399,12 +469,19 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			vararg_type.AstConfig.NodeCreator = CreateStringFlattener ();
 			generic_type.AstConfig.NodeCreator = CreateStringFlattener ();
 			generic_instance_arguments_spec.AstConfig.NodeCreator = SelectChildValueAt (1);
-			generic_instance_arguments.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			generic_instance_arguments.AstConfig.NodeCreator = CreateArrayCreator<string> ();
+			generic_instance_argument.AstConfig.NodeCreator = CreateStringFlattener ();
+			generic_identifier_or_q.AstConfig.NodeCreator = SelectSingleChild;
+			generic_constraints.AstConfig.NodeCreator = CreateStringFlattener ();
+			generic_constraint_types.AstConfig.NodeCreator = CreateArrayCreator<string> ();
 			expressions.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			impl_expression.AstConfig.NodeCreator = SelectSingleChild;
 			// each expression item is not seriously processed.
 			// They are insignificant except for consts, and for consts they are just string values.
 			call_super.AstConfig.NodeCreator = CreateStringFlattener ();
+			super_args.AstConfig.NodeCreator = CreateStringFlattener ();
 			default_value_expr.AstConfig.NodeCreator = CreateStringFlattener ();
+			default_value_null_casted.AstConfig.NodeCreator = CreateStringFlattener ();
 			default_value_literal.AstConfig.NodeCreator = CreateStringFlattener ();
 			runtime_exception.AstConfig.NodeCreator = CreateStringFlattener ();
 			numeric_terminal.AstConfig.NodeCreator = (ctx, node) => node.AstNode = node.Token.ValueString;

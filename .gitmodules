@@ -1,0 +1,3 @@
+[submodule "external/irony"]
+	path = external/irony
+	url = https://github.com/atsushieno/irony.git

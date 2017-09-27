@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "xamarin-android-javastub-im
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xamarin.Android.Tools.JavaStubImporter", "Xamarin.Android.Tools.JavaStubImporter\Xamarin.Android.Tools.JavaStubImporter.csproj", "{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "010.Irony.2012", "external\irony\Irony\010.Irony.2012.csproj", "{D81F5C91-D7DB-46E5-BC99-49488FB6814C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -25,5 +27,9 @@ Global
 		{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}.Debug|x86.Build.0 = Debug|Any CPU
 		{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}.Release|x86.ActiveCfg = Release|Any CPU
 		{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}.Release|x86.Build.0 = Release|Any CPU
+		{D81F5C91-D7DB-46E5-BC99-49488FB6814C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D81F5C91-D7DB-46E5-BC99-49488FB6814C}.Debug|x86.Build.0 = Debug|Any CPU
+		{D81F5C91-D7DB-46E5-BC99-49488FB6814C}.Release|x86.ActiveCfg = Release|Any CPU
+		{D81F5C91-D7DB-46E5-BC99-49488FB6814C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -8,11 +8,6 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 {
 	public class Importer
 	{
-		public Importer ()
-		{
-		}
-
-
 		public void Import (ImporterOptions options)
 		{
 			ZipArchive zip;
@@ -27,6 +22,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 						break;
 				}
 			}
+			if (options.OutputFile != null)
+				api.Save (options.OutputFile);
 		}
 
 		JavaStubGrammar grammar = new JavaStubGrammar () { LanguageFlags = LanguageFlags.Default | LanguageFlags.CreateAst };
@@ -38,7 +35,10 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var result = parser.Parse (javaSourceText);
 			foreach (var m in result.ParserMessages)
 				Console.WriteLine ($"{m.Level} {m.Location} {m.Message}");
-			return !result.HasErrors ();
+			if (result.HasErrors ())
+				return false;
+			api.Packages.Add ((JavaPackage) result.Root.AstNode);
+			return true;
 		}
 
 		public class ImporterOptions

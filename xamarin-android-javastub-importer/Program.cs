@@ -16,29 +16,6 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 		{
 			var options = CreateOptions (args);
 			new Importer ().Import (options);
-			ZipArchive zip;
-			using (var stream = File.OpenRead (options.InputZipArchive)) {
-				zip = new ZipArchive (stream);
-				foreach (var ent in zip.Entries) {
-					options.DiagnosticWriter.WriteLine (ent.FullName);
-					if (!ent.Name.EndsWith (".java", StringComparison.OrdinalIgnoreCase))
-						continue;
-					var java = new StreamReader (ent.Open ()).ReadToEnd ();
-					if (!ParseJava (java))
-						break;
-				}
-			}
-		}
-
-		JavaStubGrammar grammar = new JavaStubGrammar ();
-
-		bool ParseJava (string javaSourceText)
-		{
-			var parser = new Irony.Parsing.Parser (grammar);
-			var result = parser.Parse (javaSourceText);
-			foreach (var m in result.ParserMessages)
-				Console.WriteLine ($"{m.Level} {m.Location} {m.Message}");
-			return !result.HasErrors ();
 		}
 
 		Importer.ImporterOptions CreateOptions (string [] args)
