@@ -44,11 +44,11 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			};
 		}
 
-		AstNodeCreator CreateStringFlattener ()
+		AstNodeCreator CreateStringFlattener (string separator = "")
 		{
 			return delegate (AstContext ctx, ParseTreeNode node) {
 				ProcessChildren (ctx, node);
-				node.AstNode = string.Concat (node.ChildNodes.Select (n => n.AstNode?.ToString ()));
+				node.AstNode = string.Join (separator, node.ChildNodes.Select (n => n.AstNode?.ToString ()));
 			};
 		}
 
@@ -148,9 +148,9 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var assignments = DefaultNonTerminal ("assignments");
 			var assignment = DefaultNonTerminal ("assignment");
 			var assign_expr = DefaultNonTerminal ("assign_expr");
-			var assigned_rvalue = DefaultNonTerminal ("assigned_rvalue");
-			var value_assignments = DefaultNonTerminal ("value_assignments");
-			var value_literals = DefaultNonTerminal ("value_literals");
+			var rvalue_expressions = DefaultNonTerminal ("rvalue_expressions");
+			var rvalue_expression = DefaultNonTerminal ("rvalue_expression");
+			var array_literal = DefaultNonTerminal ("array_literal");
 			var annotations = DefaultNonTerminal ("annotations");
 			var annotation = DefaultNonTerminal ("annotation");
 			var opt_annotation_args = DefaultNonTerminal ("opt_annotation_args");
@@ -177,7 +177,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var generic_identifier_or_q = DefaultNonTerminal ("generic_identifier_or_q");
 			var generic_constraints = DefaultNonTerminal ("generic_constraints");
 			var generic_constraint_types = DefaultNonTerminal ("generic_constraint_types");
-			var expressions = DefaultNonTerminal ("expressions");
+			var impl_expressions = DefaultNonTerminal ("impl_expressions");
 			var impl_expression = DefaultNonTerminal ("impl_expression");
 			var call_super = DefaultNonTerminal ("call_super");
 			var super_args = DefaultNonTerminal ("super_args");
@@ -217,7 +217,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			annotation.Rule = "@" + type_name + opt_annotation_args;
 			opt_annotation_args.Rule = Empty | "(" + annotation_value_assignments + ")";
 			annotation_value_assignments.Rule = MakeStarRule (annotation_value_assignments, ToTerm (","), annot_assign_expr);
-			annot_assign_expr.Rule = assign_expr | identifier + "=" + "{" + inner_annotations + "}";
+			annot_assign_expr.Rule = assign_expr;// | identifier + "=" + "{" + inner_annotations + "}";
 			inner_annotations.Rule = MakeStarRule (inner_annotations, ToTerm (","), annotations);
 
 			// HACK: I believe this is an Irony bug that adding opt_generic_arg_decl here results in shift-reduce conflict, but it's too complicated to investigate the actual issue.
@@ -236,20 +236,20 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			static_ctor_decl.Rule = annotations + keyword_static + "{" + assignments + "}";
 			assignments.Rule = MakeStarRule (assignments, assignment);
 			assignment.Rule = assign_expr + ";";
-			assign_expr.Rule = identifier + "=" + assigned_rvalue;
-			assigned_rvalue.Rule = value_literal | type_name | value_assignments;
-			value_assignments.Rule = "{" + value_literals + "}";
-			value_literals.Rule = MakeStarRule (value_literals, ToTerm (","), value_literal);
+			assign_expr.Rule = identifier + "=" + rvalue_expression;
+			rvalue_expressions.Rule = MakeStarRule (rvalue_expressions, ToTerm (","), rvalue_expression);
+			rvalue_expression.Rule = value_literal | type_name | identifier | array_literal | annotation;
+			array_literal.Rule = "{" + rvalue_expressions + "}";
 
 			field_decl.Rule = annotations + modifiers_then_opt_generic_arg + type_name + identifier + opt_field_assignment + ";";
-			opt_field_assignment.Rule = Empty | "=" + value_literal;
-			terminate_decl_or_body.Rule = ";" | ("{" + expressions + "}") | (keyword_default + default_value_literal + ";");
+			opt_field_assignment.Rule = Empty | "=" + rvalue_expression;
+			terminate_decl_or_body.Rule = ";" | ("{" + impl_expressions + "}") | (keyword_default + default_value_literal + ";");
 
 			ctor_decl.Rule = annotations + modifiers_then_opt_generic_arg + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body; // these Empties can make the structure common to method_decl.
 
 			method_decl.Rule = annotations + modifiers_then_opt_generic_arg + /*opt_generic_arg_decl*/ type_name + identifier + "(" + argument_decls + ")" + opt_throws_decl + terminate_decl_or_body;
 
-			expressions.Rule = MakeStarRule (expressions, impl_expression);
+			impl_expressions.Rule = MakeStarRule (impl_expressions, impl_expression);
 			impl_expression.Rule = call_super | runtime_exception;
 			call_super.Rule = keyword_super + "(" + super_args + ")" + ";";
 			super_args.Rule = MakeStarRule (super_args, ToTerm (","), default_value_expr);
@@ -289,7 +289,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 
 			single_line_comment.AstConfig.NodeCreator = DoNothing;
 			delimited_comment.AstConfig.NodeCreator = DoNothing;
-			identifier.AstConfig.NodeCreator = CreateStringFlattener ();
+			identifier.AstConfig.NodeCreator = (ctx, node) => node.AstNode = node.Token.ValueString;
 			compile_unit.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
 				node.AstNode = new JavaPackage (null) { Name = (string)node.ChildNodes [0].AstNode, Types = ((IEnumerable<JavaType>) node.ChildNodes [2].AstNode).ToList () };
@@ -442,7 +442,9 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				ProcessChildren (ctx, node);
 				node.AstNode = new KeyValuePair<string, string> ((string)node.ChildNodes [0].AstNode, node.ChildNodes [2].AstNode?.ToString ());
 			};
-			assigned_rvalue.AstConfig.NodeCreator = SelectSingleChild;
+			rvalue_expressions.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			rvalue_expression.AstConfig.NodeCreator = SelectSingleChild;
+			array_literal.AstConfig.NodeCreator = CreateStringFlattener ();
 			annotations.AstConfig.NodeCreator = CreateArrayCreator<string> ();
 			annotation.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node.ChildNodes [1]); // we only care about name.
@@ -464,7 +466,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			throws_decl.AstConfig.NodeCreator = SelectChildValueAt (1);
 			comma_separated_types.AstConfig.NodeCreator = CreateArrayCreator<object> ();
 			type_name.AstConfig.NodeCreator = SelectSingleChild;
-			dotted_identifier.AstConfig.NodeCreator = CreateStringFlattener ();
+			dotted_identifier.AstConfig.NodeCreator = CreateStringFlattener (".");
 			array_type.AstConfig.NodeCreator = CreateStringFlattener ();
 			vararg_type.AstConfig.NodeCreator = CreateStringFlattener ();
 			generic_type.AstConfig.NodeCreator = CreateStringFlattener ();
@@ -474,7 +476,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			generic_identifier_or_q.AstConfig.NodeCreator = SelectSingleChild;
 			generic_constraints.AstConfig.NodeCreator = CreateStringFlattener ();
 			generic_constraint_types.AstConfig.NodeCreator = CreateArrayCreator<string> ();
-			expressions.AstConfig.NodeCreator = CreateArrayCreator<object> ();
+			impl_expressions.AstConfig.NodeCreator = CreateArrayCreator<object> ();
 			impl_expression.AstConfig.NodeCreator = SelectSingleChild;
 			// each expression item is not seriously processed.
 			// They are insignificant except for consts, and for consts they are just string values.
