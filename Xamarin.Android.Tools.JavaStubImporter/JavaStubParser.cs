@@ -10,7 +10,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 	[Language ("JavaStub", "1.0", "Java Stub grammar in Android SDK (android-stubs-src.jar)")]
 	public partial class JavaStubGrammar : Grammar
 	{
-		class NestedType : JavaMember
+		internal class NestedType : JavaMember
 		{
 			public NestedType (JavaType type)
 				: base (type)
@@ -321,7 +321,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				type.Final = mods.Contains ("final");
 				type.Visibility = mods.FirstOrDefault (s => s == "public" || s == "protected");
 				type.Name = (string)node.ChildNodes [3].AstNode;
-				type.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated");
+				type.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated") ?? "not deprecated";
 				// HACK: since modifiers_then_opt_generic_args contains both modifiers and generic args,
 				// it needs to distinguish type names from modifiers.
 				type.TypeParameters = new JavaTypeParameters ((JavaMethod)null) {
@@ -346,7 +346,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				var exts = ((IEnumerable<string>) node.ChildNodes [5].AstNode) ?? Enumerable.Empty<string> ();
 				var impls = ((IEnumerable<string>) node.ChildNodes [6].AstNode) ?? Enumerable.Empty<string> ();
 				var type = new JavaClass (null) {
-					Extends = exts?.FirstOrDefault (),
+					Extends = exts.FirstOrDefault () ?? "java.lang.Object",
+					ExtendsGeneric = exts.FirstOrDefault () ?? "java.lang.Object",
 					Implements = impls.Select (s => new JavaImplements { Name = s }).ToArray (),
 				};
 				fillType (node, type);
@@ -379,7 +380,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				method.Parameters = ((IEnumerable<JavaParameter>)node.ChildNodes [ctor ? 4 : 5].AstNode).ToArray ();
 				method.ExtendedSynthetic = mods.Contains ("synthetic");
 				method.Exceptions = ((IEnumerable<string>)node.ChildNodes [ctor ? 7 : 8].AstNode)?.Select (s => new JavaException { Type = s })?.ToArray ();
-				method.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated");
+				method.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated") ?? "not deprecated";
 				method.Final = mods.Contains ("final");
 				method.TypeParameters = new JavaTypeParameters ((JavaMethod) null) {
 					TypeParameters = mods
@@ -392,7 +393,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				ProcessChildren (ctx, node);
 				var annots = node.ChildNodes [0].AstNode;
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
-				var ctor = new JavaConstructor (null) { Type = (string) node.ChildNodes [2].AstNode };
+				var ctor = new JavaConstructor (null);
 				fillMethodBase (node, ctor);
 				node.AstNode = ctor;
 			};
@@ -419,7 +420,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					Visibility = mods.FirstOrDefault (s => s == "public" || s == "protected"),
 					Type = (string) node.ChildNodes [2].AstNode,
 					Name = (string) node.ChildNodes [3].AstNode,
-					Deprecated = ((IEnumerable<string>) node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated"),
+					Deprecated = ((IEnumerable<string>) node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "Deprecated") ?? "not deprecated",
 					Value = node.ChildNodes [4].AstNode?.ToString (),
 					Volatile = mods.Contains ("volatile"),
 					Final = mods.Contains ("final"),
