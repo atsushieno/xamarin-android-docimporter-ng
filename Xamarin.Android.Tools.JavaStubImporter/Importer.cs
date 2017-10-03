@@ -53,6 +53,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			} else
 				foreach (var t in parsedPackage.Types)
 					pkg.Types.Add (t);
+			pkg.Types = pkg.Types.OrderBy (t => t.Name).ToList ();
 			return true;
 		}
 
@@ -63,6 +64,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				list.Add (t);
 				foreach (var nt in t.Members.OfType<JavaStubGrammar.NestedType> ()) {
 					nt.Type.Name = t.Name + '.' + nt.Type.Name;
+					foreach (var nc in nt.Type.Members.OfType<JavaConstructor> ())
+						nc.Name = nt.Type.Name;
 					flatten (list, nt.Type);
 				}
 				t.Members = t.Members.Where (_ => !(_ is JavaStubGrammar.NestedType)).ToArray ();
@@ -70,8 +73,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var results = new List<JavaType> ();
 			foreach (var t in package.Types)
 				flatten (results, t);
-			results.Sort (new Comparison<JavaType> ((a, b) => string.CompareOrdinal (a.Name, b.Name)));
-			package.Types = results;
+			package.Types = results.ToList ();
 		}
 
 		public class ImporterOptions

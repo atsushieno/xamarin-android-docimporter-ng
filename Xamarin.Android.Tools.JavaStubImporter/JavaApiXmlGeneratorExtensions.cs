@@ -179,7 +179,7 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
 			SaveCommon (method, writer, "method",
 				XmlConvert.ToString (method.Abstract),
 				XmlConvert.ToString (method.Native),
-null,////				method.GetVisibleReturnTypeName (),
+method.Return,////				method.GetVisibleReturnTypeName (),
 				XmlConvert.ToString (method.Synchronized),
 				null,
 				null,
