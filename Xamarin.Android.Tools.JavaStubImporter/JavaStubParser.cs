@@ -36,6 +36,11 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			return ret;
 		}
 
+		KeyTerm T (string term)
+		{
+			return Keyword (term);
+		}
+
 		AstNodeCreator CreateArrayCreator<T> ()
 		{
 			return delegate (AstContext ctx, ParseTreeNode node) {
@@ -44,11 +49,11 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			};
 		}
 
-		AstNodeCreator CreateStringFlattener (string separator = "")
+		AstNodeCreator CreateStringFlattener (string separator = "", string prefix = "")
 		{
 			return delegate (AstContext ctx, ParseTreeNode node) {
 				ProcessChildren (ctx, node);
-				node.AstNode = string.Join (separator, node.ChildNodes.Select (n => n.AstNode?.ToString ()));
+				node.AstNode = prefix + string.Join (separator, node.ChildNodes.Select (n => n.AstNode?.ToString ()));
 			};
 		}
 
@@ -176,6 +181,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var generic_instance_argument = DefaultNonTerminal ("generic_instance_argument");
 			var generic_instance_identifier_or_q = DefaultNonTerminal ("generic_instance_identifier_or_q");
 			var generic_instance_constraints = DefaultNonTerminal ("generic_instance_constraints");
+			var generic_instance_constraints_extends = DefaultNonTerminal ("generic_instance_constraints_extends");
+			var generic_instance_constraints_super = DefaultNonTerminal ("generic_instance_constraints_super");
 			var generic_instance_constraint_types = DefaultNonTerminal ("generic_instance_constraint_types");
 			var impl_expressions = DefaultNonTerminal ("impl_expressions");
 			var impl_expression = DefaultNonTerminal ("impl_expression");
@@ -212,10 +219,10 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			opt_extends_decl.Rule = Empty | keyword_extends + implements_decl; // when it is used with an interface, it can be more than one...
 			opt_implements_decl.Rule = Empty | keyword_implements + implements_decl;
 			implements_decl.Rule = MakePlusRule (implements_decl, ToTerm (","), type_name);
-			type_body.Rule = "{" + type_members + "}";
+			type_body.Rule = T ("{") + type_members + T ("}");
 			annotations.Rule = MakeStarRule (annotations, annotation);
-			annotation.Rule = "@" + type_name + opt_annotation_args;
-			opt_annotation_args.Rule = Empty | "(" + annotation_value_assignments + ")";
+			annotation.Rule = T ("@") + type_name + opt_annotation_args;
+			opt_annotation_args.Rule = Empty | T ("(") + annotation_value_assignments + T (")");
 			annotation_value_assignments.Rule = MakeStarRule (annotation_value_assignments, ToTerm (","), annot_assign_expr);
 			annot_assign_expr.Rule = assign_expr;// | identifier + "=" + "{" + inner_annotations + "}";
 			inner_annotations.Rule = MakeStarRule (inner_annotations, ToTerm (","), annotations);
@@ -268,15 +275,17 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 
 			type_name.Rule = dotted_identifier | array_type | vararg_type | generic_type;
 
-			vararg_type.Rule = type_name + "...";
-			array_type.Rule = type_name + "[" + "]";
+			vararg_type.Rule = type_name + T ("...");
+			array_type.Rule = type_name + ("[") + T ("]");
 
 			generic_type.Rule = dotted_identifier + generic_instance_arguments_spec;
 			generic_instance_arguments_spec.Rule = "<" + generic_instance_arguments + ">";
 			generic_instance_arguments.Rule = MakePlusRule (generic_instance_arguments, ToTerm (","), generic_instance_argument);
 			generic_instance_argument.Rule = generic_instance_identifier_or_q + generic_instance_constraints;
-			generic_instance_identifier_or_q.Rule = type_name | "?";
-			generic_instance_constraints.Rule = Empty | keyword_extends + generic_instance_constraint_types | keyword_super + type_name;
+			generic_instance_identifier_or_q.Rule = type_name | T ("?");
+			generic_instance_constraints.Rule = Empty | generic_instance_constraints_extends | generic_instance_constraints_super;
+			generic_instance_constraints_extends.Rule = keyword_extends + generic_instance_constraint_types;
+			generic_instance_constraints_super.Rule = keyword_super + type_name;
 			generic_instance_constraint_types.Rule = MakePlusRule (generic_instance_constraint_types, ToTerm ("&"), type_name);
 
 			dotted_identifier.Rule = MakePlusRule (dotted_identifier, ToTerm ("."), identifier);
@@ -286,6 +295,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			value_literal.Rule = string_literal | numeric_literal | keyword_null;
 
 			// Define AST node creators
+
+			Func<string, string> stripGenerics = s => s.IndexOf ('<') > 0 ? s.Substring (0, s.IndexOf ('<')) : s;
 
 			single_line_comment.AstConfig.NodeCreator = DoNothing;
 			delimited_comment.AstConfig.NodeCreator = DoNothing;
@@ -321,11 +332,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				type.Final = mods.Contains ("final");
 				type.Visibility = mods.FirstOrDefault (s => s == "public" || s == "protected");
 				type.Name = (string)node.ChildNodes [3].AstNode;
-				type.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).Any (v => v == "java.lang.Deprecated") ? "deprecated" : "not deprecated";
-				// HACK: since modifiers_then_opt_generic_args contains both modifiers and generic args,
-				// it needs to distinguish type names from modifiers.
+				type.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).Any (v => v == "java.lang.Deprecated" || v == "Deprecated") ? "deprecated" : "not deprecated";
 				var tps = (tpsAst ?? Enumerable.Empty<string> ())
- 							?.Where (s => s.Contains ('.'))
 							?.Select (s => new JavaTypeParameter (null) { Name = s })
 							 ?.ToArray ();
 				type.TypeParameters = tpsAst != null && tpsAst.Any () ? new JavaTypeParameters ((JavaMethod)null) { TypeParameters = tps } : null;
@@ -334,7 +342,7 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			enum_decl.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
-				var type = new JavaClass (null);
+				var type = new JavaClass (null) { Extends = "java.lang.Enum" };
 				fillType (node, type);
 				if (node.ChildNodes [6].ChildNodes.Count > 0)
 					type.Members = ((IEnumerable<string>)node.ChildNodes [6].AstNode).Select (s => new JavaField (null) { Name = s }).Concat (type.Members).ToArray ();
@@ -344,21 +352,25 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				ProcessChildren (ctx, node);
 				var exts = ((IEnumerable<string>) node.ChildNodes [5].AstNode) ?? Enumerable.Empty<string> ();
 				var impls = ((IEnumerable<string>) node.ChildNodes [6].AstNode) ?? Enumerable.Empty<string> ();
+				var ext = exts.FirstOrDefault () ?? "java.lang.Object";
 				var type = new JavaClass (null) {
-					Extends = exts.FirstOrDefault () ?? "java.lang.Object",
-					ExtendsGeneric = exts.FirstOrDefault () ?? "java.lang.Object",
-					Implements = impls.Select (s => new JavaImplements { Name = s, NameGeneric = s }).ToArray (),
+					Extends = stripGenerics (ext),
+					ExtendsGeneric = ext,
+					Implements = impls.Select (s => new JavaImplements { Name = stripGenerics (s), NameGeneric = s }).ToArray (),
 				};
 				fillType (node, type);
 				node.AstNode = type;
 			};
 			interface_decl.AstConfig.NodeCreator = (ctx, node) => {
 				ProcessChildren (ctx, node);
+				bool annot = node.ChildNodes [2].AstNode as string == "@interface";
 				var exts = ((IEnumerable<string>)node.ChildNodes [5].AstNode) ?? Enumerable.Empty<string> ();
 				var impls = ((IEnumerable<string>)node.ChildNodes [6].AstNode) ?? Enumerable.Empty<string> ();
 				var type = new JavaInterface (null) {
-					Implements = exts.Concat (impls).Select (s => new JavaImplements { Name = s, NameGeneric = s }).ToArray (),
+					Implements = exts.Concat (impls).Select (s => new JavaImplements { Name = stripGenerics (s), NameGeneric = s }).ToList (),
 				};
+				if (annot)
+					type.Implements.Add (new JavaImplements { Name = "java.lang.annotation.Annotation", NameGeneric = "java.lang.annotation.Annotation" });
 				fillType (node, type);
 				node.AstNode = type;
 			};
@@ -378,8 +390,13 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				method.Name = (string)node.ChildNodes [ctor ? 2 : 3].AstNode;
 				method.Parameters = ((IEnumerable<JavaParameter>)node.ChildNodes [ctor ? 4 : 5].AstNode).ToArray ();
 				method.ExtendedSynthetic = mods.Contains ("synthetic");
-				method.Exceptions = ((IEnumerable<string>)node.ChildNodes [ctor ? 6 : 7].AstNode)?.Select (s => new JavaException { Type = s, Name = s.Substring (s.LastIndexOf ('.') + 1) })?.ToArray (); // HACK: Name can be inconsistent for nested types. But who cares?
-				method.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).FirstOrDefault (v => v == "java.lang.Deprecated") ?? "not deprecated";
+				// HACK: Exception "name" can be inconsistent for nested types, and this nested type detection is hacky.
+				Func<string, string> stripPackage = s => {
+					var packageTokens = s.Split ('.').TakeWhile (t => !t.Any (c => Char.IsUpper (c)));
+					return s.Substring (Enumerable.Sum (packageTokens.Select (t => t.Length)) + packageTokens.Count ());
+				};
+				method.Exceptions = ((IEnumerable<string>)node.ChildNodes [ctor ? 6 : 7].AstNode)?.Select (s => new JavaException { Type = s, Name = stripPackage (s) })?.ToArray ();
+				method.Deprecated = ((IEnumerable<string>)node.ChildNodes [0].AstNode).Any (v => v == "java.lang.Deprecated" || v == "Deprecated") ? "deprecated" : "not deprecated";
 				method.Final = mods.Contains ("final");
 				var tpsAst = mods
 					.Where (s => s.Contains ('.'))
@@ -414,13 +431,14 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				var annots = node.ChildNodes [0].AstNode;
 				var mods = (IEnumerable<string>)node.ChildNodes [1].AstNode;
 				var value = node.ChildNodes [4].AstNode?.ToString ();
+				var type = (string)node.ChildNodes [2].AstNode;
 				node.AstNode = new JavaField (null) {
 					Static = mods.Contains ("static"),
 					Visibility = mods.FirstOrDefault (s => s == "public" || s == "protected"),
-					Type = (string) node.ChildNodes [2].AstNode,
-					TypeGeneric = (string)node.ChildNodes [2].AstNode,
+					Type = stripGenerics (type),
+					TypeGeneric = type,
 					Name = (string) node.ChildNodes [3].AstNode,
-					Deprecated = ((IEnumerable<string>) node.ChildNodes [0].AstNode).Any (v => v == "java.lang.Deprecated") ? "deprecated" : "not deprecated",
+					Deprecated = ((IEnumerable<string>) node.ChildNodes [0].AstNode).Any (v => v == "java.lang.Deprecated" || v == "Deprecated") ? "deprecated" : "not deprecated",
 					Value = value == "null" ? null : value, // null will not be explicitly written.
 					Volatile = mods.Contains ("volatile"),
 					Final = mods.Contains ("final"),
@@ -482,8 +500,10 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			generic_instance_arguments.AstConfig.NodeCreator = CreateArrayCreator<string> ();
 			generic_instance_argument.AstConfig.NodeCreator = CreateStringFlattener ();
 			generic_instance_identifier_or_q.AstConfig.NodeCreator = SelectSingleChild;
-			generic_instance_constraints.AstConfig.NodeCreator = CreateStringFlattener ();
-			generic_instance_constraint_types.AstConfig.NodeCreator = CreateArrayCreator<string> ();
+			generic_instance_constraints.AstConfig.NodeCreator = SelectSingleChild;
+			generic_instance_constraints_extends.AstConfig.NodeCreator = CreateStringFlattener (" ", " ");
+			generic_instance_constraints_super.AstConfig.NodeCreator = CreateStringFlattener (" ", " ");
+			generic_instance_constraint_types.AstConfig.NodeCreator = CreateStringFlattener (" & ");
 			impl_expressions.AstConfig.NodeCreator = CreateArrayCreator<object> ();
 			impl_expression.AstConfig.NodeCreator = SelectSingleChild;
 			// each expression item is not seriously processed.
@@ -494,7 +514,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			default_value_null_casted.AstConfig.NodeCreator = CreateStringFlattener ();
 			default_value_literal.AstConfig.NodeCreator = CreateStringFlattener ();
 			runtime_exception.AstConfig.NodeCreator = CreateStringFlattener ();
-			numeric_terminal.AstConfig.NodeCreator = (ctx, node) => node.AstNode = node.Token.ValueString;
+			Func<string, string, string> stripTail = (s, t) => s.EndsWith (t, StringComparison.Ordinal) ? s.Substring (0, s.Length - t.Length) : s;
+			numeric_terminal.AstConfig.NodeCreator = (ctx, node) => node.AstNode = stripTail (node.Token.Text, "L");
 			numeric_literal.AstConfig.NodeCreator = CreateStringFlattener ();
 			string_literal.AstConfig.NodeCreator = (ctx, node) => node.AstNode = '"' + node.Token.ValueString + '"';
 			value_literal.AstConfig.NodeCreator = SelectSingleChild;

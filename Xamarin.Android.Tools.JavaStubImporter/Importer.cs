@@ -25,9 +25,13 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				}
 			}
 			foreach (var pkg in api.Packages)
-				foreach (var t in pkg.Types)
+				foreach (var t in pkg.Types) {
+					// Our API definitions don't contain non-public members, so remove those (but it does contain non-public types).
+					t.Members = t.Members.Where (m => m != null && m.Visibility != "").ToList ();
+					// Constructor "type" is the full name of the class.
 					foreach (var c in t.Members.OfType<JavaConstructor> ())
 						c.Type = (pkg.Name.Length > 0 ? (pkg.Name + '.') : string.Empty) + t.Name;
+				}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
 			if (options.OutputFile != null)
 				api.Save (options.OutputFile);
