@@ -31,6 +31,23 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					// Constructor "type" is the full name of the class.
 					foreach (var c in t.Members.OfType<JavaConstructor> ())
 						c.Type = (pkg.Name.Length > 0 ? (pkg.Name + '.') : string.Empty) + t.Name;
+					// Pupulated enum fields need type to be filled
+					var cls = t as JavaClass;
+					if (cls != null && cls.Extends == "java.lang.Enum") {
+						cls.ExtendsGeneric = "java.lang.Enum<" + pkg.Name + "." + t.Name + ">";
+						foreach (var m in cls.Members.OfType<JavaField> ()) {
+							if (m.Type == null) {
+								m.Type = pkg.Name + "." + t.Name;
+								m.TypeGeneric = pkg.Name + "." + t.Name;
+							}
+						}
+						foreach (var m in cls.Members.OfType<JavaMethod> ()) {
+							if (m.Name == "valueOf")
+								m.Return = pkg.Name + "." + t.Name;
+							else if (m.Name == "values")
+								m.Return = pkg.Name + "." + t.Name + "[]";
+						}
+					}
 				}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
 			if (options.OutputFile != null)

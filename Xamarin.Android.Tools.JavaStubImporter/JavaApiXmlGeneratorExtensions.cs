@@ -92,14 +92,14 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
 			foreach (var tp in typeParameters.TypeParameters) {
 				writer.WriteStartElement ("typeParameter");
 				writer.WriteAttributeString ("name", tp.Name);
-/*//
 				if (tp.GenericConstraints != null) {
 					// If there is only one generic constraint that specifies java.lang.Object,
 					// that is not really a constraint, so skip that.
 					// jar2xml does not emit that either.
 					var gcs = tp.GenericConstraints.GenericConstraints;
-					var gctr = gcs.Count == 1 ? gcs [0].ResolvedType : null;
-					if (gctr == null || gctr.ReferencedType.FullName != "java.lang.Object")
+					////var gctr = gcs.Count == 1 ? gcs [0].ResolvedType : null;
+					var gctr = gcs.Count == 1 ? gcs [0].Type : null;
+					if (gctr == null || gctr != "java.lang.Object")//// || gctr.ReferencedType.FullName != "java.lang.Object")
 					{
 						writer.WriteStartElement ("genericConstraints");
 						foreach (var g in tp.GenericConstraints.GenericConstraints) {
@@ -111,9 +111,8 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
 						writer.WriteFullEndElement ();
 					}
 				}
-				else
-					writer.WriteString ("\n" + indent + "  ");
-*/
+////				else
+////					writer.WriteString ("\n" + indent + "  ");
 				writer.WriteFullEndElement ();
 			}
 			writer.WriteString ("\n" + indent);
