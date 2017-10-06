@@ -43,6 +43,7 @@
     <Compile Include="JavaApi.XmlModel.cs" />
     <Compile Include="Importer.cs" />
     <Compile Include="JavaApiXmlGeneratorExtensions.cs" />
+    <Compile Include="JavaApiParameterNamesXmlExporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

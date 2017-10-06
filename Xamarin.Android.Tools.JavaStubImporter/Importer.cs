@@ -50,8 +50,12 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					}
 				}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
-			if (options.OutputFile != null)
-				api.Save (options.OutputFile);
+			if (options.OutputFile != null) {
+				if (options.OutputType == OutputType.ParameterNames)
+					api.WriteParameterNamesText (options.OutputFile);
+				else
+					api.Save (options.OutputFile);
+			}
 		}
 
 		JavaStubGrammar grammar = new JavaStubGrammar () { LanguageFlags = LanguageFlags.Default | LanguageFlags.CreateAst };
@@ -101,7 +105,14 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 		{
 			public string InputZipArchive { get; set; }
 			public string OutputFile { get; set; }
+			public OutputType OutputType { get; set; }
 			public TextWriter DiagnosticWriter { get; set; } = TextWriter.Null;
+		}
+
+		public enum OutputType
+		{
+			FullApi,
+			ParameterNames,
 		}
 	}
 }
