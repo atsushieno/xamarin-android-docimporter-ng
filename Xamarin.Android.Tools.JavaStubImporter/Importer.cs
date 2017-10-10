@@ -51,10 +51,14 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
 			if (options.OutputFile != null) {
-				if (options.OutputType == OutputType.ParameterNames)
+				//if (options.OutputType == OutputType.ParameterNames)
+				//	api.Save (options.OutputFile);
+				//else {
+				if (options.ParameterNamesFormat == ParameterNamesFormat.SimpleText)
 					api.WriteParameterNamesText (options.OutputFile);
 				else
-					api.Save (options.OutputFile);
+					api.WriteParameterNamesXml (options.OutputFile);
+				//}
 			}
 		}
 
@@ -105,14 +109,21 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 		{
 			public string InputZipArchive { get; set; }
 			public string OutputFile { get; set; }
-			public OutputType OutputType { get; set; }
+			//public OutputType OutputType { get; set; }
+			public ParameterNamesFormat ParameterNamesFormat { get; set; }
 			public TextWriter DiagnosticWriter { get; set; } = TextWriter.Null;
 		}
 
-		public enum OutputType
+		//public enum OutputType
+		//{
+		//	FullApi,
+		//	ParameterNames,
+		//}
+
+		public enum ParameterNamesFormat
 		{
-			FullApi,
-			ParameterNames,
+			Xml,
+			SimpleText,
 		}
 	}
 }

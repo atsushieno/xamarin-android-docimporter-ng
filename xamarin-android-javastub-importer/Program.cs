@@ -24,7 +24,8 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 			var options = new OptionSet () {"arguments:",
 				{"input=", v => ret.InputZipArchive = v },
 				{"output=", v => ret.OutputFile = v },
-				{"output-only-parameters", v => ret.OutputType = Importer.OutputType.ParameterNames },
+				//{"output-only-parameters", v => ret.OutputType = Importer.OutputType.ParameterNames },
+				{"simple-format", v => ret.ParameterNamesFormat = Importer.ParameterNamesFormat.SimpleText },
 				{"verbose", v => ret.DiagnosticWriter = Console.Error },
 			};
 			options.Parse (args);
