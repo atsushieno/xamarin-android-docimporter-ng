@@ -40,6 +40,11 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 			"packages-wearable-support.html",
 			"packages-wearable-support.html",
 		};
+		string [] non_frameworks = new string [] {
+			"android.support.",
+			"com.google.android.gms.",
+			"renderscript."
+		};
 
 		public TextWriter Verbose = TextWriter.Null;
 
@@ -51,7 +56,7 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 			Verbose.WriteLine (options.DocumentDirectory);
 
 			string referenceDocsTopDir = Path.Combine (options.DocumentDirectory, "reference");
-			var htmlFiles = Directory.GetFiles (referenceDocsTopDir, "*.html", SearchOption.AllDirectories);
+			var htmlFiles = Directory.GetDirectories (referenceDocsTopDir).SelectMany (d => Directory.GetFiles (d, "*.html", SearchOption.AllDirectories));
 
 			var javaApi = new JavaApi ();
 
@@ -60,35 +65,30 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				// skip irrelevant files.
 				if  (excludes.Any (x => htmlFile.EndsWith (x, StringComparison.OrdinalIgnoreCase)))
 					continue;
+				var packageName = Path.GetDirectoryName (htmlFile).Substring (referenceDocsTopDir.Length + 1).Replace ('/', '.');
+				if (options.FrameworkOnly && non_frameworks.Any (n => packageName.StartsWith (n, StringComparison.Ordinal)))
+					continue;
 
 				Verbose.WriteLine ("-- " + htmlFile);
 				var doc = new HtmlLoader ().GetJavaDocFile (htmlFile);
-				var content = doc.Descendants ().FirstOrDefault (e => e.Name.LocalName == "div"
-				                                        && ClassContains (e, "api")
-				                                        && e.Nodes ().Any (
-					                                        n => n.NodeType == System.Xml.XmlNodeType.Comment
-					                                        && ((XComment) n).Value.Contains ("START OF CLASS DATA")));
+				var docCol = doc.Descendants ().FirstOrDefault (e => e.Name.LocalName == "div"
+				                                                 && e.Attribute ("id")?.Value == "doc-col"
+				                                                 && e.Nodes ().Any (
+					                                                 n => n.NodeType == System.Xml.XmlNodeType.Comment
+					                                                 && ((XComment) n).Value.Contains ("START OF CLASS DATA")));
 
-				if (content == null)
+				if (docCol == null)
 					continue;
 
-				var sigCodeElems = content.Element ("p") // first <p> element
-							  .Elements ("code")
-							  .Where (e => ClassContains (e, "api-signature"));
-				var apiSignatureTokens = sigCodeElems.First ().Value.Split ('\n')
-								     .Select (s => s.Trim ())
-				                                     .Where (s => s.Length > 0);
-				var extendsElem = sigCodeElems.FirstOrDefault (e => e.Value.Trim ().StartsWith ("extends", StringComparison.Ordinal)); // can be null (java.lang.Object)
-				bool isClass = apiSignatureTokens.Contains ("class");
-				string extendsJni = isClass ? GetTypeLinkJni (extendsElem?.Element ("a")) : null;
-				var implementsElem = sigCodeElems.FirstOrDefault (e => e.Value.Trim ().StartsWith ("implements", StringComparison.Ordinal));
-				var implementsJni = implementsElem != null ? implementsElem.Elements ("a")
-											   .Select (a => GetTypeLinkJni (a)) : new string [0]; 
-				Verbose.WriteLine (string.Join (" ", apiSignatureTokens));
-				Verbose.WriteLine (" extends " + extendsJni);
-				Verbose.WriteLine (" implements " + string.Join (" ", implementsJni));
+				var header = docCol.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-header");
+				var content = docCol.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-content");
 
-				var packageName = Path.GetDirectoryName (htmlFile).Substring (referenceDocsTopDir.Length + 1).Replace ('/', '.');
+				var apiSignatureTokens = header.Value.Replace ('\r', ' ').Replace ('\n', ' ').Replace ('\t', ' ').Trim ();
+				if (apiSignatureTokens.Contains ("extends "))
+					apiSignatureTokens = apiSignatureTokens.Substring (0, apiSignatureTokens.IndexOf ("extends ", StringComparison.Ordinal)).Trim ();
+				bool isClass = apiSignatureTokens.Contains ("class");
+				Verbose.WriteLine (apiSignatureTokens);
+
 				var javaPackage = javaApi.Packages.FirstOrDefault (p => p.Name == packageName);
 				if (javaPackage == null) {
 					javaPackage = new JavaPackage (javaApi) { Name = packageName };
@@ -96,58 +96,63 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				}
 
 				var javaType = isClass ? (JavaType) new JavaClass (javaPackage) : new JavaInterface (javaPackage);
-				javaType.Name = apiSignatureTokens.Last ();
+				javaType.Name = apiSignatureTokens.Substring (apiSignatureTokens.LastIndexOf (' ') + 1);
 				javaPackage.Types.Add (javaType);
 
 				string sectionType = null;
-				var sep = new char [] { ',' };
+				var sep = new string [] { ", " };
+				var ssep = new char [] { ' ' };
 				foreach (var child in content.Elements ()) {
-					if (child.Name == "h2" && ClassContains (child, "api-section"))
+					if (child.Name == "h2") {
 						sectionType = child.Value;
-					else if (child.Name == "div" && ClassContains (child, "api")) {
-						string name = child.Elements ("h3").First (e => ClassContains (e, "api-name")).Value;
-						switch (sectionType) {
-						case "Constants":
-							// No need to handle in this tool.
-							//var constant = new JavaField (javaType) { Name = name };
-							break;
-						case "Fields":
-							// No need to handle in this tool.
-							//var field = new JavaField (javaType) { Name = name };
-							break;
-						default:
-							JavaMethodBase javaMethod = null;
-							switch (sectionType) {
-							case "Public constructors":
-							case "Protected constructors":
-								javaMethod = new JavaConstructor (javaType) { Name = name };
-								break;
-							case "Public methods":
-							case "Protected methods":
-								javaMethod = new JavaMethod (javaType) { Name = name };
-								break;
-							default:
-								throw new NotSupportedException ("Unexpected section: " + sectionType);
-							}
-							javaType.Members.Add (javaMethod);
-
-							var aNameElemValue = child.ElementsBeforeSelf ().Last ().Attribute ("name").Value;
-							var pTable = child.XPathSelectElement ("table[tr/th/text()='Parameters']");
-							var retTable = child.XPathSelectElement ("table[tr/th/text()='Returns']");
-							var paramTypes = aNameElemValue.Substring (0, aNameElemValue.Length - 1)
-										       .Substring (aNameElemValue.IndexOf ('(') + 1)
-										       .Split (sep, StringSplitOptions.RemoveEmptyEntries)
-										       .Select (s => s.Trim ());
-							var paramNames = pTable != null ? pTable.XPathSelectElements ("tr/td[1]").Select (t => t.Value.Trim ()) : new string [0];
-							foreach (var p in paramNames.Zip (paramTypes, (n, t) => new { Name = n, Type = t }))
-								javaMethod.Parameters.Add (new JavaParameter (javaMethod) { Name = p.Name, Type = p.Type });
-							break;
-						}
+						continue;
 					}
+					switch (sectionType) {
+					case "Public Constructors":
+					case "Protected Constructors":
+					case "Public Methods":
+					case "Protected Methods":
+						break;
+					default:
+						continue;
+					}
+					if (child.Name != "a" || child.Attribute ("name") == null)
+						continue;
+					
+					var h4 = (child.XPathSelectElement ("following-sibling::div") as XElement)?.Elements ("h4")?.FirstOrDefault (e => ClassContains (e, "jd-details-title"));
+					if (h4 == null)
+						continue;
+
+					string sig = h4.Value.Replace ('\n', ' ').Replace ('\r', ' ').Trim ();
+					if (!sig.Contains ('('))
+						continue;
+					JavaMethodBase javaMethod = null;
+					string name = sig.Substring (0, sig.IndexOf ('(')).Split (ssep, StringSplitOptions.RemoveEmptyEntries).Last ();
+					switch (sectionType) {
+					case "Public Constructors":
+					case "Protected Constructors":
+						javaMethod = new JavaConstructor (javaType) { Name = name };
+						break;
+					case "Public Methods":
+					case "Protected Methods":
+						string mname = sig.Substring (0, sig.IndexOf ('('));
+						javaMethod = new JavaMethod (javaType) { Name = name };
+						break;
+					}
+					javaType.Members.Add (javaMethod);
+
+					var parameters = sig.Substring (sig.IndexOf ('(') + 1).TrimEnd (')')
+							    .Split (sep, StringSplitOptions.RemoveEmptyEntries)
+					                    .Select (s => s.Trim ())
+					                    .ToArray ();
+					foreach (var p in parameters.Select (pTN => pTN.Split (' ')))
+						javaMethod.Parameters.Add (new JavaParameter (javaMethod) { Name = p [1], Type = p [0] });
 				}
 			}
 
-			var writer = XmlWriter.Create (Console.Out, new XmlWriterSettings { Indent = true });
+			var output = options.OutputFile != null ? File.CreateText (options.OutputFile) : Console.Out;
+
+			var writer = XmlWriter.Create (output, new XmlWriterSettings { Indent = true });
 			writer.WriteStartElement ("api");
 			foreach (var pkg in javaApi.Packages) {
 				writer.WriteStartElement ("package");
@@ -155,7 +160,7 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				foreach (var type in pkg.Types) {
 					writer.WriteStartElement (type is JavaClass ? "class" : "interface");
 					writer.WriteAttributeString ("name", type.Name);
-					foreach (var method in type.Members.OfType<JavaMethodBase> ()) {
+					foreach (var method in type.Members.OfType<JavaMethodBase> ().Where (m => m.Parameters.Any ())) {
 						writer.WriteStartElement (method is JavaConstructor ? "constructor" : "method");
 						writer.WriteAttributeString ("name", method.Name);
 						foreach (var p in method.Parameters) {
@@ -171,7 +176,9 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				writer.WriteEndElement ();
 			}
 			writer.WriteEndElement ();
-			writer.Close (); 
+			writer.Close ();
+
+			output.Close ();
 		}
 
 		ImporterOptions CreateOptions (string [] args)
@@ -181,6 +188,7 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				{"input=", v => ret.DocumentDirectory = v },
 				{"output=", v => ret.OutputFile = v },
 				{"verbose", v => ret.Verbose = true },
+				{"framework-only", v => ret.FrameworkOnly = true },
 			};
 			options.Parse (args);
 			return ret;
@@ -192,5 +200,6 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 		public string DocumentDirectory { get; set; }
 		public string OutputFile { get; set; }
 		public bool Verbose { get; set; }
+		public bool FrameworkOnly { get; set; }
 	}
 }
