@@ -42,7 +42,7 @@
     <Compile Include="JavaStubParser.cs" />
     <Compile Include="JavaApi.XmlModel.cs" />
     <Compile Include="Importer.cs" />
-    <Compile Include="JavaApiParameterNamesXmlExporter.cs" />
+    <Compile Include="JavaApiParameterNamesExporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

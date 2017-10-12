@@ -6,7 +6,7 @@ using Xamarin.Android.Tools.ApiXmlAdjuster;
 
 namespace Xamarin.Android.Tools.JavaStubImporter
 {
-	public static class JavaApiParameterNamesXmlExporter
+	public static class JavaApiParameterNamesExporter
 	{
 		public static void WriteParameterNamesXml (this JavaApi api, string file)
 		{
