@@ -48,6 +48,31 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 
 		public TextWriter Verbose = TextWriter.Null;
 
+/*
+
+The DroidDoc format from API Level 16 to 23, the format is:
+
+- All pages have ToC links and body (unlike standard JavaDoc which is based on HTML frames).
+- The actual doc section is a div element whose id is "doc-col".
+- The "doc-col" div element has a section div element whose id is "jd-header" and another one with id "jd-content".
+- "jd-header" div element contains the type signature (modifiers, name, and inheritance).
+  - Here we care only about type name and kind (whether it is a class or interface).
+    - Generic arguments are insignificant.
+- "jd-content" div element contains a collection of sections. Each section consists of:
+  - an "h2" element whose value text indicates the section name ("Public Constructors", "Protected Methods" etc.), and
+  - the content, which follows the h2 element.
+- The section content is a collection of members. Each member consists of:
+  - an anchor ("A") element with "name" attribute, and
+  - a div element which contains an h4 child element whose class contains "jd-details-title".
+- The h4 element contains the member signature. We parse it and retrieve the method name and list of parameters.
+  - Parameters are tokenized by ", ".
+  - Note that the splitter contains a white space which disambiguates any use of generic arguments (we don't want to split "Foo<K,V> bar" as "Foo<K" and "V> bar")
+
+API Level 10 to 15 has slightly different format:
+
+- There is no "doc-col" element. But "jd-header" and "jd-content" are still alive.
+
+*/
 		void Run (string [] args)
 		{
 			var options = CreateOptions (args);
@@ -70,22 +95,20 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 					continue;
 
 				Verbose.WriteLine ("-- " + htmlFile);
+
 				var doc = new HtmlLoader ().GetJavaDocFile (htmlFile);
-				var docCol = doc.Descendants ().FirstOrDefault (e => e.Name.LocalName == "div"
-				                                                 && e.Attribute ("id")?.Value == "doc-col"
-				                                                 && e.Nodes ().Any (
-					                                                 n => n.NodeType == System.Xml.XmlNodeType.Comment
-					                                                 && ((XComment) n).Value.Contains ("START OF CLASS DATA")));
 
-				if (docCol == null)
+				var header = doc.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-header");
+				var content = doc.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-content");
+
+				if (header == null || content == null)
 					continue;
-
-				var header = docCol.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-header");
-				var content = docCol.Descendants ().FirstOrDefault (e => e.Attribute ("id")?.Value == "jd-content");
 
 				var apiSignatureTokens = header.Value.Replace ('\r', ' ').Replace ('\n', ' ').Replace ('\t', ' ').Trim ();
 				if (apiSignatureTokens.Contains ("extends "))
 					apiSignatureTokens = apiSignatureTokens.Substring (0, apiSignatureTokens.IndexOf ("extends ", StringComparison.Ordinal)).Trim ();
+				if (apiSignatureTokens.Contains ("implements "))
+					apiSignatureTokens = apiSignatureTokens.Substring (0, apiSignatureTokens.IndexOf ("implements ", StringComparison.Ordinal)).Trim ();
 				bool isClass = apiSignatureTokens.Contains ("class");
 				Verbose.WriteLine (apiSignatureTokens);
 
