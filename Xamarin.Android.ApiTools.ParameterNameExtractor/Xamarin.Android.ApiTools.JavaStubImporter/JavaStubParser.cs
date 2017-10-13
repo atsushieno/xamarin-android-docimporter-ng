@@ -5,7 +5,7 @@ using Irony.Ast;
 using System.Collections.Generic;
 using Xamarin.Android.Tools.ApiXmlAdjuster;
 
-namespace Xamarin.Android.Tools.JavaStubImporter
+namespace Xamarin.Android.ApiTools.JavaStubImporter
 {
 	[Language ("JavaStub", "1.0", "Java Stub grammar in Android SDK (android-stubs-src.jar)")]
 	public partial class JavaStubGrammar : Grammar

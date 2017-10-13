@@ -6,9 +6,9 @@ using System.Linq;
 using Irony.Parsing;
 using Xamarin.Android.Tools.ApiXmlAdjuster;
 
-namespace Xamarin.Android.Tools.JavaStubImporter
+namespace Xamarin.Android.ApiTools.JavaStubImporter
 {
-	public class Importer
+	public class JavaStubSourceImporter
 	{
 		public void Import (ImporterOptions options)
 		{
@@ -50,12 +50,11 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 					}
 				}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
-			if (options.OutputFile != null) {
-				if (options.ParameterNamesFormat == ParameterNamesFormat.SimpleText)
-					api.WriteParameterNamesText (options.OutputFile);
-				else
-					api.WriteParameterNamesXml (options.OutputFile);
-			}
+
+			if (options.OutputTextFile != null)
+				api.WriteParameterNamesText (options.OutputTextFile);
+			if (options.OutputXmlFile != null)
+				api.WriteParameterNamesXml (options.OutputXmlFile);
 		}
 
 		JavaStubGrammar grammar = new JavaStubGrammar () { LanguageFlags = LanguageFlags.Default | LanguageFlags.CreateAst };
@@ -100,13 +99,5 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 				flatten (results, t);
 			package.Types = results.ToList ();
 		}
-	}
-
-	public class ImporterOptions
-	{
-		public string InputZipArchive { get; set; }
-		public string OutputFile { get; set; }
-		public ParameterNamesFormat ParameterNamesFormat { get; set; }
-		public TextWriter DiagnosticWriter { get; set; } = TextWriter.Null;
 	}
 }

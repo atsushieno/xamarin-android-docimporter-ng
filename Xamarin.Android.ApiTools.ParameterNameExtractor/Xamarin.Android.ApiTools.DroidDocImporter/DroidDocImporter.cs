@@ -6,9 +6,9 @@ using System.Xml.Linq;
 using System.Xml.XPath;
 using Xamarin.Android.Tools.ApiXmlAdjuster;
 
-namespace Xamarin.Android.Tools.JavadocImporterNG
+namespace Xamarin.Android.ApiTools.DroidDocImporter
 {
-	public class DroidDocImporter
+	public class DroidDocScrapingImporter
 	{
 		static bool ClassContains (XElement e, string cls)
 		{
@@ -151,21 +151,11 @@ namespace Xamarin.Android.Tools.JavadocImporterNG
 				}
 			}
 
-			if (options.OutputFile != null) {
-				if (options.ParameterNamesFormat == ParameterNamesFormat.SimpleText)
-					api.WriteParameterNamesText (options.OutputFile);
-				else
-					api.WriteParameterNamesXml (options.OutputFile);
-			}
+			if (options.OutputTextFile != null)
+				api.WriteParameterNamesText (options.OutputTextFile);
+			if (options.OutputXmlFile != null)
+				api.WriteParameterNamesXml (options.OutputXmlFile);
 		}
 	}
 
-	public class ImporterOptions
-	{
-		public string DocumentDirectory { get; set; }
-		public string OutputFile { get; set; }
-		public TextWriter DiagnosticWriter { get; set; }
-		public ParameterNamesFormat ParameterNamesFormat { get; set; }
-		public bool FrameworkOnly { get; set; }
-	}
 }

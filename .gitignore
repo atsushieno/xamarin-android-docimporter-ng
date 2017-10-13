@@ -3,4 +3,5 @@ obj
 packages
 *.userprefs
 *.csproj.user
-
+api-*.params.txt
+api-*.params.xml

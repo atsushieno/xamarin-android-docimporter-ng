@@ -6,7 +6,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Sgml;
 
-namespace Xamarin.Android.Tools.JavadocImporterNG
+namespace Xamarin.Android.ApiTools.DroidDocImporter
 {
 
 	class HtmlLoader

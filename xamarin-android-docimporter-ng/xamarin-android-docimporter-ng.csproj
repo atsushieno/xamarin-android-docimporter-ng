@@ -43,30 +43,14 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="HtmlLoader.cs" />
-    <Compile Include="DroidDocImporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="HTMLlat1.ent">
-      <LogicalName>HTMLlat1.ent</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="HTMLspecial.ent">
-      <LogicalName>HTMLspecial.ent</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="HTMLsymbol.ent">
-      <LogicalName>HTMLsymbol.ent</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="strict.dtd">
-      <LogicalName>strict.dtd</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Xamarin.Android.Tools.JavaStubImporter\Xamarin.Android.Tools.JavaStubImporter.csproj">
-      <Project>{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}</Project>
-      <Name>Xamarin.Android.Tools.JavaStubImporter</Name>
+    <ProjectReference Include="..\Xamarin.Android.ApiTools.ParameterNameExtractor\Xamarin.Android.ApiTools.ParameterNameExtractor.csproj">
+      <Project>{A7F30A05-820C-4580-8246-B84D55147408}</Project>
+      <Name>Xamarin.Android.ApiTools.ParameterNameExtractor</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
