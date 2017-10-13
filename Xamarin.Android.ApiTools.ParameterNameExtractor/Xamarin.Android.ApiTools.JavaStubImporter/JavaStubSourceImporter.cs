@@ -24,7 +24,7 @@ namespace Xamarin.Android.ApiTools.JavaStubImporter
 						break;
 				}
 			}
-			foreach (var pkg in api.Packages)
+			foreach (var pkg in api.Packages) {
 				foreach (var t in pkg.Types) {
 					// Our API definitions don't contain non-public members, so remove those (but it does contain non-public types).
 					t.Members = t.Members.Where (m => m != null && m.Visibility != "").ToList ();
@@ -48,7 +48,12 @@ namespace Xamarin.Android.ApiTools.JavaStubImporter
 								m.Return = pkg.Name + "." + t.Name + "[]";
 						}
 					}
+					t.Members = t.Members.OfType<JavaMethodBase> ()
+						.OrderBy (m => m.Name + "(" + string.Join (",", m.Parameters.Select (p => p.Type)) + ")")
+						.ToArray ();
 				}
+				pkg.Types = pkg.Types.OrderBy (t => t.Name).ToArray ();
+			}
 			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
 
 			if (options.OutputTextFile != null)

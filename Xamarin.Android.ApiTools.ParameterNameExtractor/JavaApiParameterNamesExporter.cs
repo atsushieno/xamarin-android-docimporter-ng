@@ -57,7 +57,8 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
 
 						foreach (var para in mb.Parameters) {
 							writer.WriteStartElement ("parameter");
-							writer.WriteAttributeString ("type", para.Type);
+							// For possible generic instances in parameter type, we replace all ", " with "," to ease parsing.
+							writer.WriteAttributeString ("type", para.Type.Replace (", ", ","));
 							writer.WriteAttributeString ("name", para.Name);
 							writer.WriteEndElement ();
 						}
@@ -127,7 +128,8 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
 						writer.Write ("   ");
 						writeTypeParameters (" ", mb.TypeParameters);
 						var name = mb is JavaConstructor ? "#ctor" : mb.Name;
-						writer.WriteLine ($" {name}({string.Join (", ", mb.Parameters.Select (p => p.Type + ' ' + p.Name))})");
+						// For possible generic instances in parameter type, we replace all ", " with "," to ease parsing.
+						writer.WriteLine ($" {name}({string.Join (", ", mb.Parameters.Select (p => p.Type.Replace (", ", ",") + ' ' + p.Name))})");
 					}
 				}
 			}

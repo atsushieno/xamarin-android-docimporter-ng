@@ -124,11 +124,12 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 					if (h4 == null)
 						continue;
 
-					string sig = h4.Value.Replace ('\n', ' ').Replace ('\r', ' ').Trim ();
-					if (!sig.Contains ('('))
+					string sigTypeOnly = child.Attribute ("name").Value;
+					string sigTypeAndName = h4.Value.Replace ('\n', ' ').Replace ('\r', ' ').Trim ();
+					if (!sigTypeAndName.Contains ('('))
 						continue;
 					JavaMethodBase javaMethod = null;
-					string name = sig.Substring (0, sig.IndexOf ('(')).Split (ssep, StringSplitOptions.RemoveEmptyEntries).Last ();
+					string name = sigTypeAndName.Substring (0, sigTypeAndName.IndexOf ('(')).Split (ssep, StringSplitOptions.RemoveEmptyEntries).Last ();
 					switch (sectionType) {
 					case "Public Constructors":
 					case "Protected Constructors":
@@ -136,20 +137,30 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 						break;
 					case "Public Methods":
 					case "Protected Methods":
-						string mname = sig.Substring (0, sig.IndexOf ('('));
+						string mname = sigTypeAndName.Substring (0, sigTypeAndName.IndexOf ('('));
 						javaMethod = new JavaMethod (javaType) { Name = name };
 						break;
 					}
 					javaType.Members.Add (javaMethod);
 
-					var parameters = sig.Substring (sig.IndexOf ('(') + 1).TrimEnd (')')
+					var paramTypes = sigTypeOnly.Substring (sigTypeOnly.IndexOf ('(') + 1).TrimEnd (')')
+					                            .Split (sep, StringSplitOptions.RemoveEmptyEntries)
+					                            .ToArray ();
+					var parameters = sigTypeAndName.Substring (sigTypeAndName.IndexOf ('(') + 1).TrimEnd (')')
 							    .Split (sep, StringSplitOptions.RemoveEmptyEntries)
 							    .Select (s => s.Trim ())
 							    .ToArray ();
-					foreach (var p in parameters.Select (pTN => pTN.Split (' ')))
-						javaMethod.Parameters.Add (new JavaParameter (javaMethod) { Name = p [1], Type = p [0] });
+					foreach (var p in paramTypes.Zip (parameters, (to, tn) => new { Type = to, TypeAndName = tn })
+					         .Select (pp => new { Type = pp.Type, Name = pp.TypeAndName.Split (' ') [1] }))
+						javaMethod.Parameters.Add (new JavaParameter (javaMethod) { Name = p.Name, Type = p.Type });
 				}
+				javaType.Members = javaType.Members.OfType<JavaMethodBase> ()
+					.OrderBy (m => m.Name + "(" + string.Join (",", m.Parameters.Select (p => p.Type)) + ")")
+					.ToArray ();
 			}
+			foreach (var pkg in api.Packages)
+				pkg.Types = pkg.Types.OrderBy (t => t.Name).ToArray ();
+			api.Packages = api.Packages.OrderBy (p => p.Name).ToArray ();
 
 			if (options.OutputTextFile != null)
 				api.WriteParameterNamesText (options.OutputTextFile);
