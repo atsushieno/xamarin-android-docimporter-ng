@@ -2,6 +2,7 @@
 using System.IO;
 using System.IO.Compression;
 using Mono.Options;
+using Xamarin.Android.Tools.ApiXmlAdjuster;
 
 namespace Xamarin.Android.Tools.JavaStubImporter
 {
@@ -9,23 +10,17 @@ namespace Xamarin.Android.Tools.JavaStubImporter
 	{
 		public static void Main (string [] args)
 		{
-			new Driver ().Run (args);
-		}
-
-		public void Run (string [] args)
-		{
 			var options = CreateOptions (args);
 			new Importer ().Import (options);
 		}
 
-		Importer.ImporterOptions CreateOptions (string [] args)
+		static ImporterOptions CreateOptions (string [] args)
 		{
-			var ret = new Importer.ImporterOptions ();
+			var ret = new ImporterOptions ();
 			var options = new OptionSet () {"arguments:",
 				{"input=", v => ret.InputZipArchive = v },
 				{"output=", v => ret.OutputFile = v },
-				//{"output-only-parameters", v => ret.OutputType = Importer.OutputType.ParameterNames },
-				{"simple-format", v => ret.ParameterNamesFormat = Importer.ParameterNamesFormat.SimpleText },
+				{"simple-format", v => ret.ParameterNamesFormat = ParameterNamesFormat.SimpleText },
 				{"verbose", v => ret.DiagnosticWriter = Console.Error },
 			};
 			options.Parse (args);

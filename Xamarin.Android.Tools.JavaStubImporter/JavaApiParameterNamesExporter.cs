@@ -4,8 +4,14 @@ using System.Linq;
 using System.Xml;
 using Xamarin.Android.Tools.ApiXmlAdjuster;
 
-namespace Xamarin.Android.Tools.JavaStubImporter
+namespace Xamarin.Android.Tools.ApiXmlAdjuster
 {
+	public enum ParameterNamesFormat
+	{
+		Xml,
+		SimpleText,
+	}
+
 	public static class JavaApiParameterNamesExporter
 	{
 		public static void WriteParameterNamesXml (this JavaApi api, string file)

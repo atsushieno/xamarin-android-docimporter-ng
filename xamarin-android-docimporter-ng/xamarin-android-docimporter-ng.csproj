@@ -43,8 +43,8 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="JavaApi.XmlModel.cs" />
     <Compile Include="HtmlLoader.cs" />
+    <Compile Include="DroidDocImporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -62,6 +62,12 @@
     <EmbeddedResource Include="strict.dtd">
       <LogicalName>strict.dtd</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Xamarin.Android.Tools.JavaStubImporter\Xamarin.Android.Tools.JavaStubImporter.csproj">
+      <Project>{ED0077C1-621B-4669-9BD8-7A9D726F2AB9}</Project>
+      <Name>Xamarin.Android.Tools.JavaStubImporter</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
