@@ -120,7 +120,7 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 					if (child.Name != "a" || child.Attribute ("name") == null)
 						continue;
 
-					var h4 = (child.XPathSelectElement ("following-sibling::div") as XElement)?.Elements ("h4")?.FirstOrDefault (e => ClassContains (e, "jd-details-title"));
+					var h4 = child.XPathSelectElement ("following-sibling::div/h4[contains(@class, 'jd-details-title')]");
 					if (h4 == null)
 						continue;
 
