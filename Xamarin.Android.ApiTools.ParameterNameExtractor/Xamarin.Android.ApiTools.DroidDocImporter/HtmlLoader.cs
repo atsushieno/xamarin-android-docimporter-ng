@@ -62,7 +62,12 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 
 		public HtmlLoader ()
 		{
-			HtmlDtd = Sgml.SgmlDtd.Parse (new Uri ("urn:anything"),
+			HtmlDtd = LoadHtmlDtd ();
+		}
+
+		Sgml.SgmlDtd LoadHtmlDtd ()
+		{
+			return Sgml.SgmlDtd.Parse (new Uri ("urn:anything"),
 						      "HTML",
 						      "-//W3C//DTD HTML 4.01//EN",
 						      "strict.dtd",
@@ -104,30 +109,35 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 			var info = new FileInfo (path);
 			var contents = new StringBuilder (checked((int)info.Length));
 			bool veryFirstChar = true;
-			int wasPI = 0;
+			bool in_tag = false;
+			char in_quote = '\0';
 			using (var r = info.OpenText ()) {
 
 				int ch;
 				while ((ch = r.Read ()) >= 0) {
-					// Some of the HTML files are invalid, containing constructs such as
-					// 'foo <0', which should be 'foo &lt;0'...
-					//
-					// There are also <?> which needs to be replaced by &lt;?>, but this involves 3 chars so I replace it later.
-					int next;
-					if (wasPI == 2) {
-						wasPI = 0;
-						contents.Append ("&gt;");
-					} else if (wasPI == 1) {
-						if (r.Peek () == '>')
-							wasPI = 2;
-						else
-							wasPI = 0;
-						contents.Append ('?');
-					} else if (ch == '<' && (next = r.Peek ()) >= 0 &&
-						 (char.IsDigit ((char)next) || ((char)next) == '=' || ((char)next) == '.' || (char)next == '-' || (char)next == '?' && !veryFirstChar)) {
-						contents.Append ("&lt;");
-						if (next == '?')
-							wasPI = 1;
+					if (ch == '<' && !in_tag) {
+						// Some of the HTML files are invalid, containing constructs such as
+						// 'foo <0', which should be 'foo &lt;0'.
+						// There are also <?> which needs to be replaced by &lt;?>.
+						//
+						// We check the next char to '<' so that those with only valid NCName are treated as start tag.
+						char next = (char)r.Peek ();
+						if (next == '/' || next == '!' || XmlConvert.IsStartNCNameChar (next)) {
+							in_tag = true;
+							contents.Append ('<');
+						} else {
+							contents.Append ("&lt;");
+						}
+					} else if (ch == '>' && in_tag) {
+						if (in_quote != '\0')
+							contents.Append ("&gt;");
+						else {
+							in_tag = false;
+							contents.Append ('>');
+						}
+					} else if (in_tag && (ch == '"' || ch == '\'')) {
+						in_quote = in_quote == ch ? '\0' : (char) ch;
+						contents.Append ((char) ch);
 					} else if (ch == '&') {
 						var b = new List<char> ();
 						while ((ch = r.Read ()) >= 0 && ch != ';' && ch != ' ') // sometimes the input HTML contains '&' as a standalone character (i.e. Google emits invalid HTML... android/support/test/espresso/idling/CountingIdlingResource.html has that problem.)
