@@ -95,6 +95,9 @@ namespace Xamarin.Android.Tools.ApiXmlAdjuster
  * Commas are used by both parameter types and parameter separators,
  * but only parameter separators can be followed by a whitespace.
  * It is useful when writing text parsers for this format.
+ * 
+ * Type names may contain whitespaces in case it is with generic constraints (e.g. "? extends FooBar"),
+ * so when parsing a parameter type-name pair, the only trustworthy whitespace for tokenizing name is the *last* one.
  */
 
 		public static void WriteParameterNamesText (this JavaApi api, string file)
