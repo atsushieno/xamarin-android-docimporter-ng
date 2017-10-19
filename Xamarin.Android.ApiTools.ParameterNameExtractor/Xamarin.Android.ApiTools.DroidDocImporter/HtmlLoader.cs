@@ -25,7 +25,7 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				{
 					if (name == null)
 						throw new ArgumentNullException (nameof (name));
-					this.name = name;
+					this.name = Path.GetFileName (name);
 				}
 
 				string name;
@@ -39,7 +39,7 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				}
 
 				public Uri Redirect {
-					get { return new Uri (this.name, UriKind.Relative); }
+					get { return new Uri ("file:///" + this.name); }
 				}
 
 				public Stream Open ()
@@ -67,10 +67,10 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 
 		Sgml.SgmlDtd LoadHtmlDtd ()
 		{
-			return Sgml.SgmlDtd.Parse (new Uri ("urn:anything"),
+			return Sgml.SgmlDtd.Parse (new Uri ("file:///"),
 						      "HTML",
 						      "-//W3C//DTD HTML 4.01//EN",
-						      "strict.dtd",
+			                              "file:///strict.dtd",
 						      string.Empty, new NameTable (), new EmbeddedResourceEntityResolver ());
 		}
 
@@ -95,13 +95,8 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				CaseFolding = Sgml.CaseFolding.ToLower,
 				Dtd = HtmlDtd
 			};
-			try {
-				var doc = XDocument.Load (html, LoadOptions.SetLineInfo | LoadOptions.SetBaseUri);
-				return doc.Root;
-			} catch (InvalidOperationException ex) {
-				Console.WriteLine (ex);
-				return XDocument.Parse ("<html/>").Root;
-			}
+			var doc = XDocument.Load (html, LoadOptions.SetLineInfo | LoadOptions.SetBaseUri);
+			return doc.Root;
 		}
 
 		string ReadAndSanitizeHtmlFile (string path)
@@ -200,6 +195,9 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				} else
 					contents.Append ((char)ch);
 			}
+
+			// In some documents (e.g. java/util/prefs/Preferences.html) there are invalid !DOCTYPE in the middle, which breaks SgmlReader. Kill them.
+			contents.Replace ("<!DOCTYPE", "&lt;!DOCTYPE", 10, contents.Length - 10);
 
 			// FIXME: this should not be required, but Java.Util.Concurrent.ThreadPoolExecutor fails by invalid PI.
 			return contents.Replace ("<?>", "&lt;?&gt;").ToString ();
