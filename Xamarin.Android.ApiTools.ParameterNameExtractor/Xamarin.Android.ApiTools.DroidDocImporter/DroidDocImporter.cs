@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -143,9 +144,7 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 					}
 					javaType.Members.Add (javaMethod);
 
-					var paramTypes = sigTypeOnly.Substring (sigTypeOnly.IndexOf ('(') + 1).TrimEnd (')')
-					                            .Split (sep, StringSplitOptions.RemoveEmptyEntries)
-					                            .ToArray ();
+					var paramTypes = SplitTypes (sigTypeOnly.Substring (sigTypeOnly.IndexOf ('(') + 1).TrimEnd (')'), 0).ToArray ();
 					var parameters = sigTypeAndName.Substring (sigTypeAndName.IndexOf ('(') + 1).TrimEnd (')')
 							    .Split (sep, StringSplitOptions.RemoveEmptyEntries)
 							    .Select (s => s.Trim ())
@@ -166,6 +165,48 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				api.WriteParameterNamesText (options.OutputTextFile);
 			if (options.OutputXmlFile != null)
 				api.WriteParameterNamesXml (options.OutputXmlFile);
+		}
+
+		IEnumerable<string> SplitTypes (string types, int start)
+		{
+			if (start == types.Length)
+				yield break;
+			var p2 = types.IndexOf (',', start);
+			if (p2 < 0) {
+				yield return types.Substring (start);
+				yield break;
+			}
+
+			var p1 = types.IndexOf ('<', start);
+			if (p1 < 0 || p2 < p1) {
+				yield return types.Substring (start, p2 - start);
+				foreach (var s in SplitTypes (types, p2 + ", ".Length))
+					yield return s;
+				yield break;
+			}
+
+			int open = 1;
+			for (int i = p1 + 1; i < types.Length; i++) {
+				switch (types [i]) {
+				case '<':
+					open++;
+					break;
+				case '>':
+					open--;
+					if (open == 0) {
+						i++; // will be positioned either at ',' or at the end.
+						yield return types.Substring (start, i - start);
+						if (i + 2 < types.Length && types [i] == ',' && types [i + 1] == ' ') // skip ", "
+							i += 2;
+						if (i < types.Length)
+							foreach (var s in SplitTypes (types, i))
+								yield return s;
+						yield break;
+					}
+					break;
+				}
+			}
+			throw new ArgumentException ("Unexpected list of parameters: " + types);
 		}
 	}
 
