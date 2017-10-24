@@ -110,14 +110,14 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 
 				int ch;
 				while ((ch = r.Read ()) >= 0) {
-					if (ch == '<' && !in_tag) {
+					if (ch == '<') {
 						// Some of the HTML files are invalid, containing constructs such as
 						// 'foo <0', which should be 'foo &lt;0'.
 						// There are also <?> which needs to be replaced by &lt;?>.
 						//
 						// We check the next char to '<' so that those with only valid NCName are treated as start tag.
 						char next = (char)r.Peek ();
-						if (next == '/' || next == '!' || XmlConvert.IsStartNCNameChar (next)) {
+						if (!in_tag && (next == '/' || next == '!' || XmlConvert.IsStartNCNameChar (next))) {
 							in_tag = true;
 							contents.Append ('<');
 						} else {
@@ -131,7 +131,10 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 							contents.Append ('>');
 						}
 					} else if (in_tag && (ch == '"' || ch == '\'')) {
-						in_quote = in_quote == ch ? '\0' : (char) ch;
+						if (in_quote == ch)
+							in_quote = '\0';
+						else if (in_quote == '\0')
+							in_quote = (char) ch;
 						contents.Append ((char) ch);
 					} else if (ch == '&') {
 						var b = new List<char> ();
