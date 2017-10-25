@@ -43,10 +43,10 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 		- In the following terms I explain the "correct" (or "expected") document structure, but in fact
 		  Google completely broke it and it is impossible to retrieve the document tree like this.
 		  We workaround this issue by changing the strategy "iterate children of 'jd-content'"
-		  with "iterate descendants of 'jd-content'"...
+		  with "iterate descendants of 'jd-content'"... It occurs only in API Level 15 or later.
 		  - "jd-content" div element contains a collection of sections. Each section consists of:
 		    - an "h2" element whose value text indicates the section name ("Public Constructors", "Protected Methods" etc.)
-		      - There was an issue in javax/xml/validation/SchemaFactory.html that method details contain
+		      - There was an issue in javax/xml/validation/SchemaFactory.html in API Level 15 that the method details contain
 		        "h2" and confuses the parser. To workaround this, we accept only limited kind of values.
 		    - the content, which follows the h2 element.
 		  - The section content is a collection of members. Each member consists of:
