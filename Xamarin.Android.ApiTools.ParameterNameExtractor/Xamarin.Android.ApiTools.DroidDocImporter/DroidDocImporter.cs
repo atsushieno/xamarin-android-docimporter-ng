@@ -40,15 +40,21 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 		- "jd-header" div element contains the type signature (modifiers, name, and inheritance).
 		  - Here we care only about type name and kind (whether it is a class or interface).
 		    - Generic arguments are insignificant.
-		- "jd-content" div element contains a collection of sections. Each section consists of:
-		  - an "h2" element whose value text indicates the section name ("Public Constructors", "Protected Methods" etc.), and
-		  - the content, which follows the h2 element.
-		- The section content is a collection of members. Each member consists of:
-		  - an anchor ("A") element with "name" attribute, and
-		  - a div element which contains an h4 child element whose class contains "jd-details-title".
-		- The h4 element contains the member signature. We parse it and retrieve the method name and list of parameters.
-		  - Parameters are tokenized by ", ".
-		  - Note that the splitter contains a white space which disambiguates any use of generic arguments (we don't want to split "Foo<K,V> bar" as "Foo<K" and "V> bar")
+		- In the following terms I explain the "correct" (or "expected") document structure, but in fact
+		  Google completely broke it and it is impossible to retrieve the document tree like this.
+		  We workaround this issue by changing the strategy "iterate children of 'jd-content'"
+		  with "iterate descendants of 'jd-content'"...
+		  - "jd-content" div element contains a collection of sections. Each section consists of:
+		    - an "h2" element whose value text indicates the section name ("Public Constructors", "Protected Methods" etc.)
+		      - There was an issue in javax/xml/validation/SchemaFactory.html that method details contain
+		        "h2" and confuses the parser. To workaround this, we accept only limited kind of values.
+		    - the content, which follows the h2 element.
+		  - The section content is a collection of members. Each member consists of:
+		    - an anchor ("A") element with "name" attribute, and
+		    - a div element which contains an h4 child element whose class contains "jd-details-title".
+		  - The h4 element contains the member signature. We parse it and retrieve the method name and list of parameters.
+		    - Parameters are tokenized by ", ".
+		    - Note that the splitter contains a white space which disambiguates any use of generic arguments (we don't want to split "Foo<K,V> bar" as "Foo<K" and "V> bar")
 
 		API Level 10 to 15 has slightly different format:
 
@@ -104,20 +110,23 @@ namespace Xamarin.Android.ApiTools.DroidDocImporter
 				string sectionType = null;
 				var sep = new string [] { ", " };
 				var ssep = new char [] { ' ' };
-				foreach (var child in content.Elements ()) {
+				foreach (var child in content.Descendants ()) {
 					if (child.Name == "h2") {
-						sectionType = child.Value;
+						var value = child.Value;
+						switch (value) {
+						case "Public Constructors":
+						case "Protected Constructors":
+						case "Public Methods":
+						case "Protected Methods":
+							sectionType = value;
+							break;
+						}
 						continue;
 					}
-					switch (sectionType) {
-					case "Public Constructors":
-					case "Protected Constructors":
-					case "Public Methods":
-					case "Protected Methods":
-						break;
-					default:
+
+					if (sectionType == null)
 						continue;
-					}
+
 					if (child.Name != "a" || child.Attribute ("name") == null)
 						continue;
 
